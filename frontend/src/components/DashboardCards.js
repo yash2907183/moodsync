@@ -7,25 +7,64 @@ function DashboardCards() {
 
   const cardStyle = {
     padding: "1.5rem",
-    borderRadius: "0.75rem",
-    background: "#111827",
-    border: "1px solid #1f2937",
+    borderRadius: "1rem",
+    background: "rgba(15, 23, 42, 0.95)",
+    border: "1px solid rgba(148, 163, 184, 0.2)",
+    boxShadow: "0 18px 45px rgba(15, 23, 42, 0.9)",
     flex: 1,
+    minWidth: "230px",
+  };
+
+  const labelStyle = {
+    fontSize: "0.8rem",
+    textTransform: "uppercase",
+    letterSpacing: "0.08em",
+    color: "#9ca3af",
+    marginBottom: "0.4rem",
+  };
+
+  const valueStyle = {
+    fontSize: "1.1rem",
+    fontWeight: 600,
   };
 
   return (
-    <div style={{ display: "flex", gap: "1.5rem", marginTop: "1.5rem", flexWrap: "wrap" }}>
+    <div
+      style={{
+        display: "flex",
+        gap: "1.5rem",
+        marginTop: "0.5rem",
+        flexWrap: "wrap",
+      }}
+    >
       <div style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Current mood</h2>
-        <p>{mockCurrentMood}</p>
+        <div style={labelStyle}>Current mood</div>
+        <div style={{ ...valueStyle, color: "#38bdf8" }}>
+          {mockCurrentMood}
+        </div>
+        <p style={{ color: "#9ca3af", marginTop: "0.5rem", fontSize: "0.9rem" }}>
+          Based on the last few hours of listening.
+        </p>
       </div>
+
       <div style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Recent tracks analyzed</h2>
-        <p>{mockRecentTracks} tracks today</p>
+        <div style={labelStyle}>Tracks analyzed today</div>
+        <div style={{ ...valueStyle, color: "#22c55e" }}>
+          {mockRecentTracks} tracks
+        </div>
+        <p style={{ color: "#9ca3af", marginTop: "0.5rem", fontSize: "0.9rem" }}>
+          Includes sentiment and emotion breakdown.
+        </p>
       </div>
+
       <div style={cardStyle}>
-        <h2 style={{ marginTop: 0 }}>Tomorrow outlook</h2>
-        <p>{mockPrediction}</p>
+        <div style={labelStyle}>Tomorrow outlook</div>
+        <div style={{ ...valueStyle, color: "#a855f7" }}>
+          {mockPrediction}
+        </div>
+        <p style={{ color: "#9ca3af", marginTop: "0.5rem", fontSize: "0.9rem" }}>
+          Early forecast from recent mood patterns.
+        </p>
       </div>
     </div>
   );

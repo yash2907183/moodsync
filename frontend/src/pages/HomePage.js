@@ -3,9 +3,13 @@ import DashboardCards from "../components/DashboardCards";
 
 function HomePage() {
   return (
-    <div style={{ padding: "2rem" }}>
-      <h1>MoodSync Dashboard</h1>
-      <p>Frontend skeleton connected. Backend will be wired later.</p>
+    <div>
+      <h1 style={{ fontSize: "1.8rem", marginBottom: "0.25rem" }}>
+        Mood overview
+      </h1>
+      <p style={{ color: "#9ca3af", marginBottom: "1.5rem" }}>
+        High-level view of your recent listening mood and upcoming outlook.
+      </p>
       <DashboardCards />
     </div>
   );
