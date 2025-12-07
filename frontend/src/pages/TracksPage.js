@@ -67,7 +67,7 @@ function TracksPage() {
               {tracks.map((track) => (
                 <tr key={track.id}>
                   <td style={tdStyle}>{track.title}</td>
-                  <td style={tdStyle} style={{ ...tdStyle, color: "#9ca3af" }}>
+                  <td style={{ ...tdStyle, color: "#9ca3af" }}>
                     {track.artist}
                   </td>
                   <td style={{ ...tdStyle, color: "#a855f7" }}>{track.mood}</td>
