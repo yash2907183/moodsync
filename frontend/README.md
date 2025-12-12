@@ -1,70 +1,131 @@
-# Getting Started with Create React App
+# MoodSync Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+MoodSync is a modern, music‑driven mood dashboard.  
+This project contains the **React frontend** for MoodSync. The backend and API integration are handled separately.
 
-## Available Scripts
+## Tech stack
 
-In the project directory, you can run:
+- React (Create React App)
+- React Router for client‑side routing
+- Custom inline styling (CSS‑in‑JS style)
+- Custom assets:
+  - `src/assets/logo.jpg` – MoodSync logo
+  - `src/assets/background.jpg` – dashboard background illustration
 
-### `npm start`
+## Project Structure
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+~~~~text
+frontend/
+  ├── src/
+  │   ├── assets/
+  │   │   ├── logo.jpg
+  │   │   └── background.jpg
+  │   ├── components/
+  │   │   ├── AppLayout.js
+  │   │   └── DashboardCards.js
+  │   ├── pages/
+  │   │   ├── HomePage.js
+  │   │   ├── TracksPage.js
+  │   │   └── InsightsPage.js
+  │   ├── utils/
+  │   │   └── apiClient.js
+  │   ├── App.js
+  │   └── index.js
+  └── package.json
+~~~~
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+---
 
-### `npm test`
+## Key components
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### AppLayout
 
-### `npm run build`
+- Global shell used by all pages.  
+- Includes:
+  - Sticky header with logo, tagline (“Music mood intelligence”), and navigation.
+  - Background image with gradient overlay for readability.
+  - Centered content area with max‑width and consistent padding.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### DashboardCards
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- Three highlight cards shown on the dashboard:
+  - Current mood
+  - Tracks analyzed today
+  - Tomorrow outlook
+- Uses mock data for now; designed to be wired to real metrics later.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Pages
 
-### `npm run eject`
+### Dashboard (`/`)
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+High‑level mood overview:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- Title: “Mood overview” and short description.
+- Three metric cards for current mood, track count, and next‑day outlook.
+- Cards styled as dark glass panels with soft borders and accent highlights.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### Tracks (`/tracks`)
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+Track‑level view:
 
-## Learn More
+- Table of recent tracks with:
+  - Title  
+  - Artist  
+  - Mood label  
+  - Sentiment score
+- Dark card container with subtle borders and shadows.
+- Accent colors for mood (violet) and score (green).
+- Data is obtained via the mock API client.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Insights (`/insights`)
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Analytics and trends:
 
-### Code Splitting
+- **Mood timeline (last 5 days)**  
+  - Bar‑style chart with:
+    - Color‑coded bars for positive / neutral / negative moods.
+    - Hover lift/shadow effect.
+    - Baseline line to ground the chart visually.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- **Top emotions this week**  
+  - Simple list of dominant emotions.
 
-### Analyzing the Bundle Size
+- **Emotion breakdown this week (donut / pie)**  
+  - Donut‑style chart built with a conic gradient.
+  - Shows distribution of Joy, Calm, Anticipation, Melancholy, Stress.
+  - Legend with color chips and percentage labels.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+All data on this page currently comes from mock functions in `apiClient.js`.
 
-### Making a Progressive Web App
+## Mock API client
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+`src/utils/apiClient.js` centralizes data access:
 
-### Advanced Configuration
+- `fetchHealth()` – returns a mock health object.
+- `fetchRecentTracks()` – returns an array of example tracks.
+- `fetchInsightsTimeline()` – returns a 5‑day mood timeline.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+When the backend is ready, replace the mock returns with real HTTP calls (for example using `fetch` or `axios`) while keeping the same function names so page components do not need changes.
 
-### Deployment
+## Running the frontend
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+From the `frontend` directory:
 
-### `npm run build` fails to minify
+npm install
+npm start
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+
+- The app runs at `http://localhost:3000`.
+- Routing is handled entirely on the client with React Router.
+
+## Future backend integration
+
+When the backend is available:
+
+1. Add an environment variable such as `REACT_APP_API_BASE_URL`.
+2. Update `apiClient.js` to call the real endpoints, for example:
+   - `GET /health`
+   - `GET /tracks/recent`
+   - `GET /insights/timeline`
+   - `GET /insights/emotions`
+3. Keep component code unchanged by preserving the existing function signatures.
