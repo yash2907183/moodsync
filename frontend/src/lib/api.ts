@@ -93,6 +93,14 @@ export async function getMoodSummary(days = 7): Promise<{
   return request(`/api/summary/mood?days=${days}`)
 }
 
+export async function getForecastNarrative(horizon = 7): Promise<{
+  narrative: string | null
+  reason?: string
+  generated_at?: string
+}> {
+  return request(`/api/summary/forecast?horizon=${horizon}`)
+}
+
 export async function getMoodForecast(horizon = 7): Promise<{
   history: { date: string; valence: number }[]
   forecast: { date: string; valence: number; lower: number; upper: number }[]

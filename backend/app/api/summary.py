@@ -11,6 +11,8 @@ from app.models import get_db
 from app.models.database import User, Track, Listen, Score
 from app.api.auth import get_current_user
 
+import numpy as np
+
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
@@ -146,4 +148,111 @@ Write only the summary paragraph — no headers, no bullet points, no preamble."
         "generated_at": datetime.utcnow().isoformat(),
         "days": days,
         "tracks_analyzed": analyzed_count,
+    }
+
+
+@router.get("/forecast")
+async def get_forecast_narrative(
+    horizon: int = 7,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Generate a 2-sentence Claude narrative interpreting the mood forecast."""
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="AI summary not configured.")
+
+    from statsmodels.tsa.holtwinters import SimpleExpSmoothing, Holt
+    import pandas as pd
+
+    daily = (
+        db.query(
+            func.date(Listen.played_at).label("date"),
+            func.avg(Track.valence).label("avg_valence"),
+        )
+        .join(Track, Listen.track_id == Track.track_id)
+        .filter(
+            Listen.user_id == current_user.user_id,
+            Track.valence.isnot(None),
+        )
+        .group_by(func.date(Listen.played_at))
+        .order_by(func.date(Listen.played_at))
+        .all()
+    )
+
+    if len(daily) < 3:
+        return {"narrative": None, "reason": "sparse"}
+
+    dates = [str(d.date) for d in daily]
+    values = [float(d.avg_valence) for d in daily]
+    idx = pd.date_range(start=dates[0], end=dates[-1], freq="D")
+    series = pd.Series(values, index=pd.to_datetime(dates)).reindex(idx).interpolate("linear")
+
+    hist_mean = float(np.mean(values))
+    hist_min  = float(np.min(values))
+    hist_max  = float(np.max(values))
+    obs_range = max(hist_max - hist_min, 0.01)
+    clip_lo   = max(0.0, hist_min - 0.2 * obs_range)
+    clip_hi   = min(1.0, hist_max + 0.2 * obs_range)
+
+    try:
+        if len(series) >= 7:
+            model = Holt(series.values, initialization_method="estimated").fit(optimized=True)
+        else:
+            model = SimpleExpSmoothing(series.values, initialization_method="estimated").fit(optimized=True)
+        raw_forecast = model.forecast(horizon)
+    except Exception:
+        raw_forecast = [hist_mean] * horizon
+
+    forecast_vals = [round(float(np.clip(v, clip_lo, clip_hi)), 3) for v in raw_forecast]
+
+    last_date = pd.to_datetime(dates[-1])
+    forecast_dates = [
+        (last_date + timedelta(days=i + 1)).strftime("%b %d") for i in range(horizon)
+    ]
+
+    trend_diff = forecast_vals[-1] - forecast_vals[0]
+    trend_word = "rising" if trend_diff > 0.02 else "falling" if trend_diff < -0.02 else "steady"
+
+    # Find the peak/dip day for Claude to reference
+    peak_idx = int(np.argmax(forecast_vals))
+    dip_idx  = int(np.argmin(forecast_vals))
+    notable_day = forecast_dates[peak_idx] if trend_word == "rising" else forecast_dates[dip_idx]
+
+    forecast_lines = "\n".join(
+        f"  {forecast_dates[i]}: {forecast_vals[i]:.3f}" for i in range(horizon)
+    )
+
+    prompt = f"""You are a warm, insightful music mood analyst. A listener's 7-day mood forecast (based on their music, valence 0=sad → 1=happy) looks like this:
+
+Historical average: {hist_mean:.3f}
+Overall trend: {trend_word}
+Notable day: {notable_day}
+
+Day-by-day forecast:
+{forecast_lines}
+
+Write exactly 2 sentences in second person ("your"):
+1. Describe the trajectory naturally — when it shifts and roughly where it lands. Mention the notable day if relevant.
+2. Offer one warm, human insight or reframe that makes the reader feel understood.
+
+Rules: no numbers or valence scores, no headers, no bullet points, no preamble."""
+
+    try:
+        client = anthropic.Anthropic(api_key=api_key)
+        message = client.messages.create(
+            model="claude-opus-4-7",
+            max_tokens=120,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        narrative = message.content[0].text.strip()
+    except anthropic.AuthenticationError:
+        raise HTTPException(status_code=503, detail="Invalid ANTHROPIC_API_KEY.")
+    except Exception as e:
+        logger.error(f"Claude forecast narrative error: {e}")
+        raise HTTPException(status_code=502, detail="Could not generate forecast narrative.")
+
+    return {
+        "narrative": narrative,
+        "generated_at": datetime.utcnow().isoformat(),
     }
