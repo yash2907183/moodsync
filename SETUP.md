@@ -1,345 +1,168 @@
-# MoodSync Setup Guide
+# Setup Guide
 
-## 🚀 Quick Start (5 minutes)
+## Prerequisites
 
-### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- PostgreSQL 14+ (local or hosted — Neon, Supabase, Railway all work)
+- Spotify Developer account
+- Genius API account
+- Anthropic API key
+
+---
+
+## 1. Spotify app
+
+1. Go to [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard) and create an app.
+2. Under **Settings → Redirect URIs**, add:
+   - `http://localhost:8000/api/auth/callback` (local dev)
+   - Your production callback URL when deploying
+3. Copy your **Client ID** and **Client Secret**.
+
+---
+
+## 2. Genius API
+
+1. Go to [genius.com/api-clients](https://genius.com/api-clients) and create a client.
+2. Copy the **Client Access Token** (read-only is fine).
+
+---
+
+## 3. Anthropic API
+
+1. Get a key from [console.anthropic.com](https://console.anthropic.com).
+
+---
+
+## 4. Database
+
+### Local PostgreSQL
 
 ```bash
-# Required
-Python 3.9+
-PostgreSQL 13+
-Redis 6+
-
-# Optional (for full features)
-Node.js 16+ (for frontend)
-Docker (for containerized deployment)
+createdb moodsync
+# connection string: postgresql://your_user:your_pass@localhost:5432/moodsync
 ```
 
-### 1. Database Setup
+### Hosted (Neon — recommended for free tier)
 
-```bash
-# Install PostgreSQL
-# macOS:
-brew install postgresql
-brew services start postgresql
+1. Create a project at [neon.tech](https://neon.tech).
+2. Copy the connection string from the dashboard.
 
-# Ubuntu/Debian:
-sudo apt update
-sudo apt install postgresql postgresql-contrib
-sudo systemctl start postgresql
+---
 
-# Create database
-psql postgres
-CREATE DATABASE moodsync;
-CREATE USER moodsync_user WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE moodsync TO moodsync_user;
-\q
-```
-
-### 2. Redis Setup
-
-```bash
-# macOS:
-brew install redis
-brew services start redis
-
-# Ubuntu/Debian:
-sudo apt install redis-server
-sudo systemctl start redis
-```
-
-### 3. Backend Setup
+## 5. Backend
 
 ```bash
 cd backend
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Copy and configure environment variables
+# Copy and fill in environment variables
 cp .env.example .env
-# Edit .env with your credentials (see below)
-
-# Initialize database
-python scripts/init_db.py
-
-# Run the application
-uvicorn app.main:app --reload
 ```
 
-The API will be available at `http://localhost:8000`
-- API docs: http://localhost:8000/docs
-- Health check: http://localhost:8000/health
+Edit `backend/.env`:
 
-## 🔑 API Keys Setup
-
-### Spotify Developer Account
-
-1. Go to https://developer.spotify.com/dashboard
-2. Click "Create an App"
-3. Fill in app name and description
-4. Add redirect URI: `http://localhost:8000/api/auth/callback`
-5. Copy `Client ID` and `Client Secret` to your `.env` file
-
-```env
-SPOTIFY_CLIENT_ID=your_client_id_here
-SPOTIFY_CLIENT_SECRET=your_client_secret_here
-SPOTIFY_REDIRECT_URI=http://localhost:8000/api/auth/callback
 ```
-
-### Genius API (for lyrics)
-
-1. Go to https://genius.com/api-clients
-2. Click "New API Client"
-3. Fill in app details
-4. Generate a Client Access Token
-5. Copy token to your `.env` file
-
-```env
-GENIUS_ACCESS_TOKEN=your_genius_token_here
-```
-
-### Optional: Musixmatch API (backup lyrics source)
-
-1. Go to https://developer.musixmatch.com/
-2. Sign up and get API key
-3. Add to `.env`:
-
-```env
-MUSIXMATCH_API_KEY=your_musixmatch_key_here
-```
-
-## 📝 Environment Variables
-
-Complete `.env` file template:
-
-```env
-# Database
-DATABASE_URL=postgresql://moodsync_user:your_password@localhost:5432/moodsync
-
-# Redis
-REDIS_URL=redis://localhost:6379/0
-
-# Spotify
-SPOTIFY_CLIENT_ID=your_spotify_client_id
-SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
+SPOTIFY_CLIENT_ID=your_client_id
+SPOTIFY_CLIENT_SECRET=your_client_secret
 SPOTIFY_REDIRECT_URI=http://localhost:8000/api/auth/callback
 
-# Genius
 GENIUS_ACCESS_TOKEN=your_genius_token
 
-# JWT
-JWT_SECRET_KEY=generate-a-strong-random-key-here
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=30
+ANTHROPIC_API_KEY=your_anthropic_key
 
-# App Settings
-DEBUG=True
-LOG_LEVEL=INFO
-USE_GPU=False  # Set to True if you have GPU support
+DATABASE_URL=postgresql://user:pass@localhost:5432/moodsync
 
-# CORS
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
+JWT_SECRET_KEY=some-long-random-string-keep-it-secret
+FRONTEND_URL=http://localhost:3000
 ```
 
-## 🧪 Testing the Setup
-
-### 1. Test Database Connection
+Initialize the database:
 
 ```bash
-python -c "from app.models import init_db; init_db(); print('✅ Database connection successful')"
+python ../scripts/init_db.py
 ```
 
-### 2. Test Sentiment Analyzer
+Start the backend:
 
 ```bash
-python -c "from app.services.sentiment import get_sentiment_analyzer; analyzer = get_sentiment_analyzer(); result = analyzer.analyze_comprehensive('I love this happy song'); print('✅ Sentiment analyzer working:', result)"
+uvicorn app.main:app --reload --port 8000
 ```
 
-### 3. Test API Endpoints
+The API is now at `http://localhost:8000`. Swagger docs: `http://localhost:8000/docs`.
+
+---
+
+## 6. Frontend
 
 ```bash
-# Health check
-curl http://localhost:8000/health
+cd frontend
+npm install
 
-# Get auth URL
-curl http://localhost:8000/api/auth/login
+# Create env file
+echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > .env.local
+
+npm run dev
 ```
 
-## 📊 Database Initialization Script
+Open [http://localhost:3000](http://localhost:3000).
 
-Create `scripts/init_db.py`:
+---
 
-```python
-"""
-Initialize database tables
-"""
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+## 7. First run
 
-from app.models import init_db
+1. Click **Connect with Spotify** on the landing page.
+2. Authorize the app.
+3. Click **Sync now** on the dashboard — this fetches your 50 recent tracks, retrieves lyrics, and runs NLP analysis.
+4. The first sync takes 1–3 minutes while HuggingFace models load.
 
-if __name__ == "__main__":
-    print("Initializing database...")
-    init_db()
-    print("✅ Database initialized successfully!")
-```
+---
 
-Run it:
+## 8. Backfilling (optional)
+
+If you switch NLP models or want to re-analyse all stored tracks:
+
 ```bash
-python scripts/init_db.py
+cd backend
+source .venv/bin/activate
+python ../scripts/backfill_moods.py
 ```
 
-## 🔄 Typical Workflow
+---
 
-### 1. User Authentication
+## 9. Daily sync cron (optional)
+
+To keep your data fresh automatically, run `scripts/daily_sync.py` on a schedule:
+
 ```bash
-# Get login URL
-GET /api/auth/login
-# Returns: {"auth_url": "https://accounts.spotify.com/..."}
-
-# User clicks URL, authorizes, redirects to callback
-GET /api/auth/callback?code=...
-# Returns: JWT token and user info
+# crontab -e
+0 6 * * * /path/to/.venv/bin/python /path/to/scripts/daily_sync.py >> /path/to/logs/daily.log 2>&1
 ```
 
-### 2. Sync Listening History
-```bash
-POST /api/tracks/sync
-Headers: Authorization: Bearer <jwt_token>
-Body: {
-  "spotify_access_token": "<spotify_token>",
-  "limit": 50
-}
-```
+---
 
-### 3. Get Mood Insights
-```bash
-GET /api/insights/timeline?days=30
-Headers: Authorization: Bearer <jwt_token>
-```
+## 10. Deployment
 
-## 🐳 Docker Deployment (Optional)
+### Backend → Railway
 
-Create `docker-compose.yml`:
+1. Push your repo to GitHub.
+2. Create a new Railway project, connect the repo, set the root to `/backend`.
+3. Add all environment variables from `backend/.env`.
+4. Update `SPOTIFY_REDIRECT_URI` to `https://your-railway-url/api/auth/callback`.
 
-```yaml
-version: '3.8'
+### Frontend → Vercel
 
-services:
-  db:
-    image: postgres:13
-    environment:
-      POSTGRES_DB: moodsync
-      POSTGRES_USER: moodsync_user
-      POSTGRES_PASSWORD: your_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+1. Import the repo in Vercel, set the root to `/frontend`.
+2. Add `NEXT_PUBLIC_API_URL=https://your-railway-url`.
 
-  redis:
-    image: redis:6
-    ports:
-      - "6379:6379"
+### Database → Neon
 
-  backend:
-    build: ./backend
-    ports:
-      - "8000:8000"
-    depends_on:
-      - db
-      - redis
-    environment:
-      DATABASE_URL: postgresql://moodsync_user:your_password@db:5432/moodsync
-      REDIS_URL: redis://redis:6379/0
-    volumes:
-      - ./backend:/app
+Use the Neon connection string as `DATABASE_URL` in Railway.
 
-volumes:
-  postgres_data:
-```
-
-Run with Docker:
-```bash
-docker-compose up -d
-```
-
-## 🎯 Next Steps
-
-1. **Test Authentication Flow**: Try logging in with your Spotify account
-2. **Sync Your Data**: Import your listening history
-3. **Run Analysis**: Process lyrics and generate sentiment scores
-4. **View Insights**: Check your mood timeline
-
-## 🔧 Troubleshooting
-
-### Issue: Database connection failed
-```bash
-# Check PostgreSQL is running
-pg_isready
-
-# Check credentials in .env
-psql -U moodsync_user -d moodsync -h localhost
-```
-
-### Issue: Redis connection failed
-```bash
-# Check Redis is running
-redis-cli ping
-# Should return: PONG
-```
-
-### Issue: Sentiment models not loading
-```bash
-# Clear cache and reinstall transformers
-pip uninstall transformers torch
-pip install transformers torch --no-cache-dir
-
-# Check GPU availability (if using)
-python -c "import torch; print(torch.cuda.is_available())"
-```
-
-### Issue: Genius API rate limit
-```bash
-# The free tier has limits. Consider:
-# 1. Adding delays between requests
-# 2. Caching lyrics in database
-# 3. Using Musixmatch as backup
-```
-
-## 📚 Additional Resources
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Spotipy Documentation](https://spotipy.readthedocs.io/)
-- [HuggingFace Transformers](https://huggingface.co/docs/transformers)
-- [SQLAlchemy Tutorial](https://docs.sqlalchemy.org/)
-
-## 🆘 Getting Help
-
-If you encounter issues:
-1. Check logs in `logs/moodsync.log`
-2. Enable debug mode: `DEBUG=True` in `.env`
-3. Check API docs at `/docs` for endpoint details
-4. Review the project README.md
-
-## ✅ Verification Checklist
-
-- [ ] PostgreSQL running and database created
-- [ ] Redis running
-- [ ] Python virtual environment activated
-- [ ] All dependencies installed
-- [ ] .env file configured with all API keys
-- [ ] Database tables created (init_db.py)
-- [ ] API server running at http://localhost:8000
-- [ ] Health check returns "healthy"
-- [ ] Can access /docs for API documentation
-- [ ] Spotify login redirects correctly
-- [ ] Sentiment analyzer loads successfully
-
-Once all items are checked, you're ready to start using MoodSync! 🎉
+After deploying, add your production callback URL to the Spotify app's **Redirect URIs**.
