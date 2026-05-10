@@ -110,3 +110,41 @@ export async function getMoodForecast(horizon = 7): Promise<{
 }> {
   return request(`/api/insights/predict?horizon=${horizon}`)
 }
+
+export async function startPlaylistAnalysis(
+  playlistUrl: string,
+  spotifyToken: string,
+): Promise<{ job_id: string; status: string }> {
+  return request(
+    `/api/playlists/analyze?playlist_url=${encodeURIComponent(playlistUrl)}&spotify_token=${encodeURIComponent(spotifyToken)}`,
+    { method: "POST" },
+  )
+}
+
+export interface PlaylistTrack {
+  name: string
+  artist: string
+  valence: number | null
+  energy: number | null
+}
+
+export interface PlaylistJobResult {
+  job_id: string
+  status: "pending" | "running" | "done" | "error"
+  playlist_name: string | null
+  total_tracks: number
+  analyzed_tracks: number
+  result: {
+    playlist_name: string
+    total_tracks: number
+    analyzed_tracks: number
+    avg_valence: number | null
+    avg_energy: number | null
+    tracks: PlaylistTrack[]
+  } | null
+  error: string | null
+}
+
+export async function getPlaylistJob(jobId: string): Promise<PlaylistJobResult> {
+  return request(`/api/playlists/jobs/${jobId}`)
+}

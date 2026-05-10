@@ -277,6 +277,38 @@ class SpotifyService:
             logger.error(f"Error fetching playlists: {e}")
             raise
     
+    def get_playlist_tracks(self, access_token: str, playlist_id: str) -> tuple[str, List[Dict]]:
+        """
+        Fetch all tracks from a Spotify playlist (handles pagination).
+        Returns (playlist_name, list_of_track_dicts).
+        """
+        try:
+            sp = self.get_client(access_token)
+            meta = sp.playlist(playlist_id, fields="name")
+            playlist_name = meta.get("name", "Unknown Playlist")
+
+            tracks = []
+            results = sp.playlist_items(
+                playlist_id,
+                fields="items(track(id,name,artists,album,duration_ms,popularity,uri)),next",
+                limit=100,
+            )
+            while results:
+                for item in results.get("items", []):
+                    track = item.get("track")
+                    if track and track.get("id"):
+                        tracks.append(self._extract_track_data(track))
+                if results.get("next"):
+                    results = sp.next(results)
+                else:
+                    break
+
+            logger.info(f"Fetched {len(tracks)} tracks from playlist {playlist_id}")
+            return playlist_name, tracks
+        except SpotifyException as e:
+            logger.error(f"Error fetching playlist tracks: {e}")
+            raise
+
     def _extract_track_data(self, track: Dict) -> Dict:
         if not track:
             return {}

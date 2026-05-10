@@ -13,6 +13,7 @@ import TopTracksList from "@/components/dashboard/TopTracksList"
 import MoodSummary from "@/components/dashboard/MoodSummary"
 import MoodCheckinCard from "@/components/dashboard/MoodCheckin"
 import MoodForecast from "@/components/dashboard/MoodForecast"
+import PlaylistAnalyzer from "@/components/dashboard/PlaylistAnalyzer"
 
 function greeting() {
   const h = new Date().getHours()
@@ -296,6 +297,11 @@ export default function DashboardPage() {
             <p className="text-sm text-slate-400 mb-4">Your most listened-to songs</p>
             <TopTracksList tracks={topTracks} />
           </div>
+        </div>
+
+        {/* Playlist Analyser */}
+        <div className="mb-6 animate-fade-up-6">
+          <PlaylistAnalyzer />
         </div>
 
         {/* Mood Check-in */}

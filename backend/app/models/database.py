@@ -191,6 +191,26 @@ class DailyMood(Base):
         return f"<DailyMood(user_id={self.user_id}, day={self.day}, polarity_avg={self.polarity_avg})>"
 
 
+class PlaylistJob(Base):
+    """Background job for playlist mood analysis"""
+    __tablename__ = "playlist_jobs"
+
+    job_id = Column(String(255), primary_key=True, index=True)
+    user_id = Column(String(255), ForeignKey("users.user_id"), nullable=False, index=True)
+    playlist_url = Column(String(500), nullable=False)
+    playlist_name = Column(String(500), nullable=True)
+    status = Column(String(20), default="pending")  # pending | running | done | error
+    total_tracks = Column(Integer, default=0)
+    analyzed_tracks = Column(Integer, default=0)
+    result = Column(JSON, nullable=True)  # aggregated mood result + per-track list
+    error = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    def __repr__(self):
+        return f"<PlaylistJob(job_id={self.job_id}, status={self.status})>"
+
+
 class MoodCheckin(Base):
     """User-reported mood for validation"""
     __tablename__ = "mood_checkins"
