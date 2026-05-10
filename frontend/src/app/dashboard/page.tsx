@@ -233,7 +233,7 @@ export default function DashboardPage() {
             <div>
               <p className="font-semibold text-amber-800 dark:text-amber-300">No mood data yet</p>
               <p className="text-sm text-amber-600 dark:text-amber-400/70 mt-1">
-                Sync your Spotify history, then run <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">python scripts/backfill_moods.py</code>
+                Sync your Spotify history to get started. Analysis runs automatically in the background.
               </p>
             </div>
             <button onClick={handleSync} disabled={syncing}
@@ -246,21 +246,29 @@ export default function DashboardPage() {
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 animate-fade-up-1">
           <StatCard
-            label="Dominant Mood"
+            label="Top Emotion"
             value={emotions?.dominant_mood ? capitalize(emotions.dominant_mood) : "—"}
+            sub="in your lyrics"
             accentColor={moodTheme.accent}
           />
           <StatCard
             label="Tracks Analysed"
             value={emotions?.analyzed_tracks ?? "—"}
+            sub="with full lyrics"
             accentColor={moodTheme.accent}
           />
           <StatCard
-            label="Lyrical Sentiment"
+            label="Lyrical Mood"
             value={avgValence !== null
-              ? avgValence > 0.05 ? "Positive" : avgValence < -0.05 ? "Negative" : "Neutral"
+              ? avgValence < -0.5 ? "Very dark"
+              : avgValence < -0.2 ? "Dark & heavy"
+              : avgValence < -0.05 ? "Slightly heavy"
+              : avgValence < 0.05 ? "Mixed"
+              : avgValence < 0.2 ? "Slightly uplifting"
+              : avgValence < 0.5 ? "Uplifting"
+              : "Very uplifting"
               : "—"}
-            sub={avgValence !== null ? `score: ${avgValence > 0 ? "+" : ""}${avgValence.toFixed(3)}` : undefined}
+            sub="from song lyrics"
             accentColor={avgValence !== null && avgValence > 0.05 ? "#10b981" : avgValence !== null && avgValence < -0.05 ? "#f87171" : "#94a3b8"}
           />
           <StatCard
@@ -284,7 +292,7 @@ export default function DashboardPage() {
               <p className="text-sm text-slate-400 mt-0.5">
                 {timeline.length > 0
                   ? `${timeline[0].date} → ${timeline[timeline.length - 1].date} · ${timeline.length} day${timeline.length > 1 ? "s" : ""}`
-                  : "Valence & energy from your listening history"}
+                  : "Lyrical mood from your listening history"}
               </p>
             </div>
             <select
@@ -315,7 +323,8 @@ export default function DashboardPage() {
         <div className="grid md:grid-cols-2 gap-6 mb-6 animate-fade-up-5">
           <div className="bg-white dark:bg-[#111118] border border-slate-200 dark:border-[#1e1e2a] rounded-2xl p-6 shadow-sm">
             <h2 className="font-semibold text-lg mb-1 text-slate-900 dark:text-slate-100">Emotion Breakdown</h2>
-            <p className="text-sm text-slate-400 mb-6">Aggregated from your last 50 tracks</p>
+            <p className="text-sm text-slate-400 mb-1">What the lyrics of your last 50 tracks express</p>
+            <p className="text-xs text-slate-300 dark:text-slate-600 mb-5">Based on lyrical content — not the sound or feel of the music</p>
             <EmotionBreakdown data={emotions?.distribution ?? null} />
           </div>
           <div className="bg-white dark:bg-[#111118] border border-slate-200 dark:border-[#1e1e2a] rounded-2xl p-6 shadow-sm">
