@@ -46,6 +46,10 @@ export async function getRecentTracks(limit = 20): Promise<ListenRecord[]> {
   return request(`/api/tracks/recent?limit=${limit}`)
 }
 
+export async function getAnalysisStatus(): Promise<{ pending: number }> {
+  return request("/api/tracks/analysis-status")
+}
+
 export async function getTimeline(days = 30): Promise<TimelinePoint[]> {
   return request(`/api/insights/timeline?days=${days}`)
 }

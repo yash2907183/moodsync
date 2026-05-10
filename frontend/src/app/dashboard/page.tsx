@@ -1,8 +1,8 @@
 "use client"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { getJwt, getSpotifyToken, isSpotifyTokenExpired, clearTokens } from "@/lib/auth"
-import { getMe, getTimeline, getEmotions, syncTracks, getTopTracks } from "@/lib/api"
+import { getMe, getTimeline, getEmotions, syncTracks, getTopTracks, getAnalysisStatus } from "@/lib/api"
 import type { TimelinePoint, EmotionsResponse, UserInfo } from "@/types"
 import { getMoodTheme } from "@/lib/mood-theme"
 import { useTheme } from "@/lib/theme"
@@ -50,11 +50,13 @@ export default function DashboardPage() {
   const [timeline, setTimeline] = useState<TimelinePoint[]>([])
   const [emotions, setEmotions] = useState<EmotionsResponse | null>(null)
   const [topTracks, setTopTracks] = useState<{ track_id: string; name: string; artist: string[]; plays: number }[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [syncing, setSyncing]   = useState(false)
-  const [syncMsg, setSyncMsg]   = useState<string | null>(null)
-  const [syncErr, setSyncErr]   = useState<string | null>(null)
-  const [days, setDays]         = useState(365)
+  const [loading, setLoading]         = useState(true)
+  const [syncing, setSyncing]         = useState(false)
+  const [syncMsg, setSyncMsg]         = useState<string | null>(null)
+  const [syncErr, setSyncErr]         = useState<string | null>(null)
+  const [pendingAnalysis, setPending] = useState(0)
+  const analysisPollRef               = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [days, setDays]               = useState(365)
 
   const loadData = useCallback(async () => {
     const [userRes, timelineRes, emotionsRes] = await Promise.allSettled([
@@ -72,6 +74,21 @@ export default function DashboardPage() {
     loadData()
   }, [loadData, router])
 
+  function startAnalysisPoll() {
+    if (analysisPollRef.current) clearInterval(analysisPollRef.current)
+    analysisPollRef.current = setInterval(async () => {
+      try {
+        const { pending } = await getAnalysisStatus()
+        setPending(pending)
+        if (pending === 0) {
+          clearInterval(analysisPollRef.current!)
+          analysisPollRef.current = null
+          await loadData()
+        }
+      } catch { /* ignore */ }
+    }, 5000)
+  }
+
   async function handleSync() {
     const spotifyToken = getSpotifyToken()
     if (!spotifyToken || isSpotifyTokenExpired()) { setSyncErr("Spotify session expired. Please log in again."); return }
@@ -80,6 +97,9 @@ export default function DashboardPage() {
       const res = await syncTracks(spotifyToken)
       setSyncMsg(`Synced ${res.count} tracks!`)
       await loadData()
+      const { pending } = await getAnalysisStatus()
+      setPending(pending)
+      if (pending > 0) startAnalysisPoll()
     } catch { setSyncErr("Sync failed. Try again.") }
     finally { setSyncing(false) }
   }
@@ -149,6 +169,12 @@ export default function DashboardPage() {
         {syncErr && (
           <div className="mb-6 px-4 py-3 rounded-xl text-sm bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 animate-fade-up">
             {syncErr}
+          </div>
+        )}
+        {pendingAnalysis > 0 && (
+          <div className="mb-6 px-4 py-3 rounded-xl text-sm bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 text-violet-700 dark:text-violet-300 flex items-center gap-3">
+            <div className="w-3.5 h-3.5 border-2 border-violet-400 border-t-violet-700 rounded-full animate-spin shrink-0" />
+            Analysing {pendingAnalysis} track{pendingAnalysis !== 1 ? "s" : ""} in the background — scores will update automatically when done.
           </div>
         )}
 

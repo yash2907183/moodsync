@@ -36,6 +36,25 @@ def normalize_id(s: str):
 router = APIRouter()
 
 
+@router.get("/analysis-status")
+async def get_analysis_status(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Count of this user's tracks still waiting for sentiment analysis."""
+    from sqlalchemy import func
+    pending = (
+        db.query(func.count(Listen.listen_id.distinct()))
+        .join(Track, Listen.track_id == Track.track_id)
+        .filter(
+            Listen.user_id == current_user.user_id,
+            Track.valence.is_(None),
+        )
+        .scalar()
+    ) or 0
+    return {"pending": pending}
+
+
 @router.get("/top")
 async def get_top_tracks(
     limit: int = 10,
