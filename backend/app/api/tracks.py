@@ -266,6 +266,11 @@ def fetch_lyrics_for_tracks(db: Session, spotify_ids: List[str]):
 
             lyrics_text = existing_lyric.text if existing_lyric else None
             if not lyrics_text:
+                # No lyrics found from any source — assign neutral score so
+                # this track stops blocking the pending count
+                track.valence = 0.0
+                track.energy = 0.0
+                db.commit()
                 continue
 
             result = sentiment_analyzer.analyze_comprehensive(lyrics_text)
