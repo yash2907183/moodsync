@@ -1,5 +1,5 @@
 """
-Lyrics fetching service using Genius API
+Lyrics fetching service using Genius API with lyrics.ovh fallback
 """
 import os
 import logging
@@ -7,6 +7,7 @@ import re
 from typing import Optional, Tuple
 import lyricsgenius
 from lyricsgenius.types import Song
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,27 @@ class LyricsService:
             
         except Exception as e:
             logger.error(f"Error fetching lyrics for '{track_name}': {e}")
-            return None, "error", False
+
+        # Fallback: lyrics.ovh
+        return self._fetch_from_lyricsovh(track_name, artist_name)
+
+    def _fetch_from_lyricsovh(self, track_name: str, artist_name: str) -> Tuple[Optional[str], str, bool]:
+        """Fallback lyrics source that works from cloud IPs."""
+        try:
+            clean_track = self._normalize_title(track_name)
+            clean_artist = self._normalize_artist(artist_name)
+            url = f"https://lyrics.ovh/v1/{requests.utils.quote(clean_artist)}/{requests.utils.quote(clean_track)}"
+            resp = requests.get(url, timeout=10)
+            if resp.status_code == 200:
+                data = resp.json()
+                lyrics = data.get("lyrics", "")
+                if lyrics and len(lyrics.strip()) >= 50:
+                    cleaned = self._clean_lyrics(lyrics)
+                    logger.info(f"lyrics.ovh fallback succeeded for: {track_name}")
+                    return cleaned, "lyricsovh", False
+        except Exception as e:
+            logger.warning(f"lyrics.ovh fallback failed for '{track_name}': {e}")
+        return None, "none", False
     
     def _normalize_title(self, title: str) -> str:
         """
