@@ -9,11 +9,12 @@ from sqlalchemy.orm import Session
 import traceback
 
 from app.models import get_db
-from app.models.database import User, Track, Listen, Lyric
+from app.models.database import User, Track, Listen, Lyric, Score
 from app.models.schemas import TrackResponse, ListenResponse
 from app.api.auth import get_current_user
 from app.services.spotify import get_spotify_service
 from app.services.lyrics import get_lyrics_service
+from app.services.sentiment import get_sentiment_analyzer
 
 logger = logging.getLogger(__name__)
 
@@ -201,53 +202,78 @@ async def sync_listening_history(
 
 def fetch_lyrics_for_tracks(db: Session, spotify_ids: List[str]):
     """
-    Background task to fetch lyrics for tracks.
-    
-    Args:
-        db: Database session
-        spotify_ids: List of Spotify track IDs
+    Background task: fetch lyrics then run sentiment analysis for any track
+    that still has valence=None. Writes valence/energy back to Track so the
+    timeline and forecast work even when Spotify audio features are blocked.
     """
     try:
         lyrics_service = get_lyrics_service()
-        
+        sentiment_analyzer = get_sentiment_analyzer()
+        analyzed = 0
+
         for spotify_id in spotify_ids:
-            # Check if lyrics already exist
             track = db.query(Track).filter(Track.spotify_id == spotify_id).first()
-            
             if not track:
                 continue
-            
-            existing_lyrics = db.query(Lyric).filter(Lyric.track_id == track.track_id).first()
-            if existing_lyrics:
-                continue
-            
-            # Fetch lyrics
-            artist_name = track.artists[0] if track.artists else "Unknown"
-            lyrics_text, source, is_instrumental = lyrics_service.fetch_lyrics(
-                track.name,
-                artist_name
-            )
-            
-            if lyrics_text or is_instrumental:
-                # Detect language
-                language = None
-                if lyrics_text:
-                    language = lyrics_service.detect_language(lyrics_text)
-                
-                # Save lyrics
-                lyric = Lyric(
-                    track_id=track.track_id,
-                    source=source,
-                    language=language,
-                    text=lyrics_text or "",
-                    is_instrumental=is_instrumental
+
+            # --- Lyrics step ---
+            existing_lyric = db.query(Lyric).filter(Lyric.track_id == track.track_id).first()
+            if not existing_lyric:
+                artist_name = track.artists[0] if track.artists else "Unknown"
+                lyrics_text, source, is_instrumental = lyrics_service.fetch_lyrics(
+                    track.name, artist_name
                 )
-                db.add(lyric)
-        
-        db.commit()
-        logger.info(f"Fetched lyrics for {len(spotify_ids)} tracks")
+                if lyrics_text or is_instrumental:
+                    language = lyrics_service.detect_language(lyrics_text) if lyrics_text else None
+                    existing_lyric = Lyric(
+                        track_id=track.track_id,
+                        source=source,
+                        language=language,
+                        text=lyrics_text or "",
+                        is_instrumental=is_instrumental,
+                    )
+                    db.add(existing_lyric)
+                    db.commit()
+
+            # --- Sentiment step (only for tracks still missing valence) ---
+            if track.valence is not None:
+                continue
+
+            if existing_lyric and existing_lyric.is_instrumental:
+                track.valence = 0.5
+                track.energy = 0.5
+                db.commit()
+                continue
+
+            lyrics_text = existing_lyric.text if existing_lyric else None
+            if not lyrics_text:
+                continue
+
+            result = sentiment_analyzer.analyze_comprehensive(lyrics_text)
+
+            track.valence = result["valence"]
+            track.energy = result["arousal"]
+
+            existing_score = db.query(Score).filter(Score.track_id == track.track_id).first()
+            if not existing_score:
+                db.add(Score(
+                    track_id=track.track_id,
+                    model="hybrid_roberta",
+                    polarity=result["polarity"],
+                    valence_score=result["valence"],
+                    arousal_score=result["arousal"],
+                    joy=result["emotions"].get("joy", 0),
+                    sadness=result["emotions"].get("sadness", 0),
+                    anger=result["emotions"].get("anger", 0),
+                    fear=result["emotions"].get("fear", 0),
+                    optimism=result["emotions"].get("optimism", 0),
+                ))
+            db.commit()
+            analyzed += 1
+
+        logger.info(f"Lyrics+sentiment done: {analyzed}/{len(spotify_ids)} tracks got valence")
     except Exception as e:
-        logger.error(f"Error fetching lyrics: {e}")
+        logger.error(f"Error in lyrics/sentiment background task: {e}")
         db.rollback()
 
 
