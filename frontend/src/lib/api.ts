@@ -148,3 +148,11 @@ export interface PlaylistJobResult {
 export async function getPlaylistJob(jobId: string): Promise<PlaylistJobResult> {
   return request(`/api/playlists/jobs/${jobId}`)
 }
+
+export async function generatePlaylistMusic(jobId: string): Promise<{
+  prompt: string
+  audio_b64: string
+  format: string
+}> {
+  return request(`/api/playlists/jobs/${jobId}/generate-music`, { method: "POST" })
+}

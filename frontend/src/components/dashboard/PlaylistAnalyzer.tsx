@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useRef, useState } from "react"
-import { startPlaylistAnalysis, getPlaylistJob } from "@/lib/api"
+import { startPlaylistAnalysis, getPlaylistJob, generatePlaylistMusic } from "@/lib/api"
 import { getSpotifyToken } from "@/lib/auth"
 import { useTheme } from "@/lib/theme"
 import type { PlaylistJobResult, PlaylistTrack } from "@/lib/api"
@@ -29,17 +29,38 @@ export default function PlaylistAnalyzer() {
   const { theme } = useTheme()
   const isDark = theme === "dark"
 
-  const [url, setUrl]           = useState("")
-  const [job, setJob]           = useState<PlaylistJobResult | null>(null)
+  const [url, setUrl]             = useState("")
+  const [job, setJob]             = useState<PlaylistJobResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
-  const [error, setError]       = useState<string | null>(null)
-  const pollRef                 = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [error, setError]         = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [musicPrompt, setMusicPrompt] = useState<string | null>(null)
+  const [audioB64, setAudioB64]   = useState<string | null>(null)
+  const [musicError, setMusicError] = useState<string | null>(null)
+  const pollRef                   = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const clearPoll = () => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
   }
 
   useEffect(() => () => clearPoll(), [])
+
+  async function handleGenerateMusic() {
+    if (!job?.job_id) return
+    setGenerating(true)
+    setMusicError(null)
+    setMusicPrompt(null)
+    setAudioB64(null)
+    try {
+      const res = await generatePlaylistMusic(job.job_id)
+      setMusicPrompt(res.prompt)
+      setAudioB64(res.audio_b64)
+    } catch (err: unknown) {
+      setMusicError(err instanceof Error ? err.message : "Music generation failed.")
+    } finally {
+      setGenerating(false)
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -175,6 +196,40 @@ export default function PlaylistAnalyzer() {
               </div>
             </div>
           )}
+
+          {/* Generate Similar Music */}
+          <div className="border-t border-slate-100 dark:border-[#1e1e2a] pt-4">
+            <button
+              onClick={handleGenerateMusic}
+              disabled={generating}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+            >
+              {generating ? (
+                <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Generating…</>
+              ) : (
+                <><span>🎵</span> Generate Similar Music</>
+              )}
+            </button>
+            {generating && (
+              <p className="text-xs text-slate-400 mt-2 animate-pulse">Claude is writing a music prompt · Stability AI is generating audio (~30s)…</p>
+            )}
+            {musicError && (
+              <p className="mt-3 text-sm text-red-500 dark:text-red-400">{musicError}</p>
+            )}
+            {audioB64 && musicPrompt && (
+              <div className="mt-4 space-y-3">
+                <div className="bg-slate-50 dark:bg-[#1a1a22] rounded-xl px-4 py-3">
+                  <p className="text-[10px] text-slate-400 uppercase tracking-wider mb-1">Generated prompt</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{musicPrompt}</p>
+                </div>
+                <audio
+                  controls
+                  className="w-full h-10 rounded-xl"
+                  src={`data:audio/mp3;base64,${audioB64}`}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

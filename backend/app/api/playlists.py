@@ -1,8 +1,12 @@
 import re
 import uuid
 import logging
+import os
+import base64
 from datetime import datetime
 
+import anthropic
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 
@@ -200,4 +204,90 @@ async def get_job_status(
         "analyzed_tracks": job.analyzed_tracks,
         "result": job.result,
         "error": job.error,
+    }
+
+
+@router.post("/jobs/{job_id}/generate-music")
+async def generate_similar_music(
+    job_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    stability_key = os.getenv("STABILITY_API_KEY")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+    if not stability_key:
+        raise HTTPException(status_code=503, detail="STABILITY_API_KEY not configured.")
+    if not anthropic_key:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not configured.")
+
+    job = db.query(PlaylistJob).filter(
+        PlaylistJob.job_id == job_id,
+        PlaylistJob.user_id == current_user.user_id,
+    ).first()
+    if not job or job.status != "done" or not job.result:
+        raise HTTPException(status_code=404, detail="Playlist analysis not complete.")
+
+    result = job.result
+    playlist_name = result.get("playlist_name", "Unknown Playlist")
+    avg_valence = result.get("avg_valence")
+    avg_energy = result.get("avg_energy")
+    tracks = result.get("tracks", [])
+    sample_tracks = ", ".join(
+        f"{t['name']} by {t['artist']}" for t in tracks[:8] if t.get("valence") is not None
+    ) or ", ".join(f"{t['name']} by {t['artist']}" for t in tracks[:5])
+
+    valence_desc = (
+        "uplifting and positive" if avg_valence and avg_valence > 0.3
+        else "melancholic and introspective" if avg_valence and avg_valence < -0.2
+        else "emotionally balanced"
+    ) if avg_valence is not None else "varied emotional tone"
+
+    energy_desc = (
+        "high-energy and intense" if avg_energy and avg_energy > 0.5
+        else "calm and atmospheric"
+    ) if avg_energy is not None else "moderate energy"
+
+    claude = anthropic.Anthropic(api_key=anthropic_key)
+    prompt_msg = claude.messages.create(
+        model="claude-opus-4-7",
+        max_tokens=120,
+        messages=[{
+            "role": "user",
+            "content": f"""Write a concise music generation prompt (max 80 words) for an AI music tool like Suno or Udio.
+Base it on this playlist analysis:
+- Playlist: {playlist_name}
+- Mood: {valence_desc}, {energy_desc}
+- Sample tracks: {sample_tracks}
+
+Write ONLY the prompt itself — no preamble, no explanation. Make it specific: include genre, tempo feel, instrumentation, atmosphere. Sound like a music producer describing a track."""
+        }]
+    )
+    music_prompt = prompt_msg.content[0].text.strip()
+    logger.info(f"Generated music prompt: {music_prompt}")
+
+    async with httpx.AsyncClient(timeout=120) as client:
+        resp = await client.post(
+            "https://api.stability.ai/v2beta/audio/stable-audio/generate",
+            headers={
+                "Authorization": f"Bearer {stability_key}",
+                "Accept": "audio/*",
+            },
+            data={
+                "prompt": music_prompt,
+                "seconds_total": 45,
+                "steps": 50,
+                "cfg_scale": 7,
+                "output_format": "mp3",
+            },
+        )
+
+    if resp.status_code != 200:
+        logger.error(f"Stability API error {resp.status_code}: {resp.text[:300]}")
+        raise HTTPException(status_code=502, detail=f"Music generation failed: {resp.text[:200]}")
+
+    audio_b64 = base64.b64encode(resp.content).decode("utf-8")
+    return {
+        "prompt": music_prompt,
+        "audio_b64": audio_b64,
+        "format": "mp3",
     }
