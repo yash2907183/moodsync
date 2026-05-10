@@ -26,8 +26,8 @@ class LyricsService:
             try:
                 self.genius = lyricsgenius.Genius(
                     self.genius_token,
-                    timeout=15,
-                    retries=3,
+                    timeout=5,
+                    retries=1,
                     remove_section_headers=True,
                     skip_non_songs=True,
                     excluded_terms=["(Remix)", "(Live)", "(Instrumental)"]
