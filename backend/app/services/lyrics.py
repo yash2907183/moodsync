@@ -5,6 +5,7 @@ import os
 import logging
 import re
 from typing import Optional, Tuple
+from urllib.parse import quote as url_quote
 import lyricsgenius
 from lyricsgenius.types import Song
 import requests
@@ -95,7 +96,7 @@ class LyricsService:
         try:
             clean_track = self._normalize_title(track_name)
             clean_artist = self._normalize_artist(artist_name)
-            url = f"https://lyrics.ovh/v1/{requests.utils.quote(clean_artist)}/{requests.utils.quote(clean_track)}"
+            url = f"https://lyrics.ovh/v1/{url_quote(clean_artist)}/{url_quote(clean_track)}"
             resp = requests.get(url, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
