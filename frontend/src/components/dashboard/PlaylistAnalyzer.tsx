@@ -30,7 +30,6 @@ export default function PlaylistAnalyzer() {
   const isDark = theme === "dark"
 
   const [url, setUrl]           = useState("")
-  const [jobId, setJobId]       = useState<string | null>(null)
   const [job, setJob]           = useState<PlaylistJobResult | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError]       = useState<string | null>(null)
@@ -46,7 +45,6 @@ export default function PlaylistAnalyzer() {
     e.preventDefault()
     setError(null)
     setJob(null)
-    setJobId(null)
     clearPoll()
 
     const token = getSpotifyToken()
@@ -59,7 +57,6 @@ export default function PlaylistAnalyzer() {
     setSubmitting(true)
     try {
       const res = await startPlaylistAnalysis(url.trim(), token)
-      setJobId(res.job_id)
 
       pollRef.current = setInterval(async () => {
         try {
