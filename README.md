@@ -1,20 +1,24 @@
 # MoodSync
 
-Discover what your music says about your mood. MoodSync connects to your Spotify account, fetches lyrics via Genius, runs them through emotion and sentiment models, and builds a personal mood timeline — complete with AI-written summaries, a 7-day forecast, and shareable mood cards.
+Discover what your music says about your emotional state. MoodSync connects to your Spotify account, fetches song lyrics, runs them through emotion and sentiment models, and builds a personal mood timeline — complete with AI-written summaries, a 7-day forecast, playlist mood analysis, and AI-generated music.
 
-![MoodSync Dashboard](docs/screenshot.png)
+Live at: **[moodsync-delta.vercel.app](https://moodsync-delta.vercel.app)**
 
 ## What it does
 
-- **Spotify OAuth** — sign in with Spotify, we fetch your 50 most recent tracks
-- **Lyrics NLP** — lyrics are pulled from Genius and analysed with three models:
-  - `j-hartmann/emotion-english-distilroberta-base` — 7-class emotion classifier (joy, sadness, anger, fear, disgust, surprise, neutral)
+- **Spotify OAuth** — sign in with Spotify; your 50 most recent tracks are fetched and analysed automatically after each sync
+- **Lyrics NLP** — lyrics are pulled from Genius (with lyrics.ovh as cloud fallback) and analysed with three models:
+  - `j-hartmann/emotion-english-distilroberta-base` — 7-class emotion classifier (joy, sadness, anger, fear, disgust, surprise, optimism)
   - `cardiffnlp/twitter-roberta-base-sentiment` — RoBERTa polarity (positive / neutral / negative)
   - VADER — fast rule-based sentiment as a secondary signal
-- **Mood timeline** — daily aggregated valence score plotted over time
-- **AI mood summary** — Claude (Anthropic) writes a personalised paragraph about your emotional state based on your dominant emotions and top tracks
-- **7-day forecast** — Holt exponential smoothing (statsmodels) predicts your mood trajectory with a confidence band
-- **Mood check-ins** — rate your actual mood (1–5) each day; the app computes Pearson correlation between your self-report and the AI's valence reading
+- **Mood timeline** — daily aggregated lyrical mood score plotted over time
+- **Emotion breakdown** — bar chart showing your dominant emotions from recent lyrics (joy, anger, fear, sadness, optimism)
+- **AI mood summary** — Claude writes a personalised paragraph about your emotional state based on your top tracks and emotion mix
+- **7-day forecast** — Holt exponential smoothing predicts your mood trajectory with a confidence band, interpreted by Claude in plain English
+- **Playlist analyser** — paste any Spotify playlist URL; MoodSync fetches lyrics for every track and returns a full mood profile with per-track emotion scores
+- **AI music generation** — after analysing a playlist, Claude writes a music prompt and Stability Audio generates a 45-second original track matching the playlist's vibe
+- **Mood check-ins** — rate your actual mood (1–5) each day; the app computes Pearson correlation between your self-report and the lyrical mood reading
+- **Analysis progress** — live banner after sync shows how many tracks are being processed in the background, auto-refreshes when done
 - **Shareable cards** — html2canvas renders a styled PNG you can download or share
 - **Dark / light mode** — system-preference detection + manual toggle, no flash on load
 
@@ -22,39 +26,40 @@ Discover what your music says about your mood. MoodSync connects to your Spotify
 
 | Layer | Stack |
 |---|---|
-| Backend | Python 3.11, FastAPI, SQLAlchemy 2, PostgreSQL |
+| Backend | Python 3.11, FastAPI, SQLAlchemy 2, PostgreSQL (Neon) |
 | NLP | HuggingFace Transformers, VADER, statsmodels |
-| AI summary | Anthropic Claude API |
-| Lyrics | Genius API via lyricsgenius |
+| AI summary & forecast | Anthropic Claude API (claude-opus-4-7) |
+| AI music generation | Stability AI Stable Audio API |
+| Lyrics | Genius API (lyricsgenius) + lyrics.ovh fallback |
 | Auth | Spotify OAuth 2.0 + JWT (python-jose) |
 | Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS v3 |
 | Charts | Recharts |
 | Cards | html2canvas |
+| Hosting | Railway (backend) + Vercel (frontend) + Neon (database) |
 
 ## Quick start
 
 See [SETUP.md](SETUP.md) for full instructions. Short version:
 
 ```bash
-# 1. Clone and enter the repo
-git clone <your-repo-url> moodsync && cd moodsync
+# 1. Clone
+git clone https://github.com/yash2907183/moodsync && cd moodsync
 
 # 2. Backend
 cd backend
-python -m venv .venv && source .venv/bin/activate
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # fill in your keys
 python ../scripts/init_db.py
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload
 
 # 3. Frontend (new terminal)
 cd frontend
 npm install
-cp .env.example .env.local   # NEXT_PUBLIC_API_URL=http://localhost:8000
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000), click **Connect with Spotify**, and sync your tracks.
+Open [http://localhost:3000](http://localhost:3000), click **Connect with Spotify**, and hit **Sync**.
 
 ## Environment variables
 
@@ -66,19 +71,22 @@ SPOTIFY_CLIENT_SECRET=
 SPOTIFY_REDIRECT_URI=http://localhost:8000/api/auth/callback
 
 GENIUS_ACCESS_TOKEN=
-
 ANTHROPIC_API_KEY=
+STABILITY_API_KEY=
 
 DATABASE_URL=postgresql://user:pass@localhost:5432/moodsync
 
-JWT_SECRET_KEY=          # any random string, keep it secret
+JWT_SECRET_KEY=          # any long random string
 FRONTEND_URL=http://localhost:3000
+ALLOWED_ORIGINS=http://localhost:3000
 ```
 
-### Frontend (`frontend/.env.local`)
+### Frontend (no `.env.local` needed for local dev)
+
+The frontend proxies all `/api/` calls through Next.js rewrites. In production, set:
 
 ```
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_BACKEND_URL=https://your-railway-url.up.railway.app
 ```
 
 ## API endpoints
@@ -87,34 +95,49 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 |---|---|---|
 | GET | `/api/auth/login` | Begin Spotify OAuth flow |
 | GET | `/api/auth/callback` | OAuth callback, issues JWT |
-| GET | `/api/tracks/sync` | Fetch & analyse recent tracks |
-| GET | `/api/insights/timeline` | Daily valence history |
-| GET | `/api/insights/emotions` | Emotion breakdown |
+| POST | `/api/tracks/sync` | Fetch & queue analysis for recent tracks |
+| GET | `/api/tracks/analysis-status` | Count of tracks pending sentiment analysis |
+| GET | `/api/tracks/top` | Most-played tracks |
+| GET | `/api/tracks/recent` | Recent listen history |
+| GET | `/api/insights/timeline` | Daily lyrical mood history |
+| GET | `/api/insights/emotions` | Emotion breakdown (last 50 tracks) |
 | GET | `/api/insights/predict` | 7-day mood forecast |
-| GET | `/api/insights/top-tracks` | Top tracks with scores |
-| GET | `/api/insights/correlation` | Mood check-in vs AI valence |
-| GET | `/api/mood/checkin` | Today's check-in |
+| GET | `/api/mood/checkin/today` | Today's mood check-in |
 | POST | `/api/mood/checkin` | Submit mood check-in |
-| GET | `/api/summary/generate` | Generate Claude AI summary |
-| GET | `/api/analysis/me` | Current user info |
+| GET | `/api/mood/correlation` | Check-in vs lyrical mood correlation |
+| GET | `/api/summary/mood` | Generate Claude AI mood summary |
+| GET | `/api/summary/forecast` | Claude narrative for forecast |
+| POST | `/api/playlists/analyze` | Start background playlist analysis job |
+| GET | `/api/playlists/jobs/{id}` | Poll playlist job status + results |
+| POST | `/api/playlists/jobs/{id}/generate-music` | Generate AI music from playlist mood |
 
-Interactive docs at `http://localhost:8000/docs` (Swagger UI).
+Interactive docs at `http://localhost:8000/docs`.
 
 ## Scripts
 
 ```bash
-scripts/init_db.py          # create database tables
-scripts/backfill_moods.py   # re-analyse all stored tracks (run after model change)
-scripts/daily_sync.py       # sync + analyse (run this as a cron job)
+scripts/init_db.py          # create all database tables
+scripts/backfill_moods.py   # analyse stored tracks against a specific DATABASE_URL
+scripts/daily_sync.py       # sync + analyse (for cron jobs)
 scripts/view_analysis.py    # CLI tool to inspect scores in the database
 scripts/dump_db.py          # export DB rows to JSON for debugging
 ```
 
+## How scoring works
+
+MoodSync measures **lyrical emotional content** — not the sound of the music. This distinction matters:
+
+- "Mr. Brightside" has jealous, angry lyrics but sounds euphoric — our score reflects the lyrics, not the feeling
+- Scores are based on what the *words express*, not tempo, key, or instrumentation
+
+The pipeline: j-hartmann classifies 7 emotions from the lyrics → valence is computed as `(positive_mass − negative_mass) / total_mass` → shown as plain labels (Very dark / Dark & heavy / Mixed / Uplifting / Very uplifting)
+
 ## Known limitations
 
-- **Explicit lyrics score low** — NLP models read explicit / aggressive language literally, so tracks like hype anthems often get negative valence. This is a known limitation of text-based sentiment; audio features would solve it but Spotify's audio features API is deprecated for new apps (Nov 2024).
-- **Instrumental tracks** — lyrics are absent so VADER / transformer scores fall back to neutral (0.0).
-- **Genius matching** — the Genius search sometimes returns wrong lyrics for non-English or remixed tracks.
+- **Genius blocked on cloud IPs** — Genius rate-limits requests from data centre IPs; lyrics.ovh is used as a fallback but has narrower coverage
+- **Non-English tracks** — neither Genius nor lyrics.ovh reliably covers regional/non-English music; these tracks get a neutral placeholder score
+- **Lyrics ≠ musical feel** — sentiment is derived from lyrics only; audio features (tempo, key, energy) are not used since Spotify's audio features API was deprecated for new apps in Nov 2024
+- **Spotify dev mode** — the app supports up to 25 users; add testers via the Spotify Developer Dashboard until extended quota is approved
 
 ## License
 
