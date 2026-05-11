@@ -68,17 +68,24 @@ async def get_emotion_distribution(
     Aggregate the specific emotions (Joy, Sadness, etc.) 
     from the user's last X songs.
     """
-    # 1. Get the last X listens for this user
-    recent_listens = (
+    # All-time total scored tracks for this user (ever-growing, never drops)
+    all_time_count = (
+        db.query(func.count(func.distinct(Listen.track_id)))
+        .join(Score, Listen.track_id == Score.track_id)
+        .filter(Listen.user_id == current_user.user_id)
+        .scalar()
+    ) or 0
+
+    # Emotion distribution from the last `limit` scored listens (for recency)
+    recent_scored = (
         db.query(Listen.track_id)
+        .join(Score, Listen.track_id == Score.track_id)
         .filter(Listen.user_id == current_user.user_id)
         .order_by(Listen.played_at.desc())
         .limit(limit)
         .subquery()
     )
-    
-    # 2. Join with the Score table (where the AI emotions live)
-    # We sum up the scores for the tracks the user actually listened to
+
     emotion_totals = (
         db.query(
             func.sum(Score.joy).label('total_joy'),
@@ -88,30 +95,28 @@ async def get_emotion_distribution(
             func.sum(Score.optimism).label('total_optimism'),
             func.count(Score.score_id).label('analyzed_count')
         )
-        .join(recent_listens, Score.track_id == recent_listens.c.track_id)
+        .join(recent_scored, Score.track_id == recent_scored.c.track_id)
         .first()
     )
 
     if not emotion_totals or emotion_totals.analyzed_count == 0:
         return {"message": "Not enough data yet. Listen to more songs!"}
 
-    # 3. Calculate Percentages
     count = emotion_totals.analyzed_count
     distribution = {
-        "joy": round(emotion_totals.total_joy / count, 2),
-        "sadness": round(emotion_totals.total_sadness / count, 2),
-        "anger": round(emotion_totals.total_anger / count, 2),
-        "fear": round(emotion_totals.total_fear / count, 2),
-        "optimism": round(emotion_totals.total_optimism / count, 2)
+        "joy":      round(emotion_totals.total_joy / count, 2),
+        "sadness":  round(emotion_totals.total_sadness / count, 2),
+        "anger":    round(emotion_totals.total_anger / count, 2),
+        "fear":     round(emotion_totals.total_fear / count, 2),
+        "optimism": round(emotion_totals.total_optimism / count, 2),
     }
-    
-    # Sort them to find the "Dominant Mood"
+
     dominant_mood = max(distribution, key=distribution.get)
 
     return {
-        "analyzed_tracks": count,
+        "analyzed_tracks": all_time_count,
         "dominant_mood": dominant_mood,
-        "distribution": distribution
+        "distribution": distribution,
     }
 
 
