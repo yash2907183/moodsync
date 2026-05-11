@@ -215,3 +215,92 @@ async def predict_mood(
         "data_points": actual_days,
         "hist_mean": round(hist_mean, 3),
     }
+
+
+@router.get("/time-of-day")
+async def get_time_of_day(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Average lyrical mood score grouped by hour of day (0–23)."""
+    rows = (
+        db.query(
+            func.extract("hour", Listen.played_at).label("hour"),
+            func.avg(Track.valence).label("avg_valence"),
+            func.count(Listen.listen_id).label("count"),
+        )
+        .join(Track, Listen.track_id == Track.track_id)
+        .filter(
+            Listen.user_id == current_user.user_id,
+            Track.valence.isnot(None),
+        )
+        .group_by(func.extract("hour", Listen.played_at))
+        .order_by(func.extract("hour", Listen.played_at))
+        .all()
+    )
+    return [
+        {"hour": int(r.hour), "avg_valence": round(float(r.avg_valence), 3), "count": r.count}
+        for r in rows
+    ]
+
+
+@router.get("/day-of-week")
+async def get_day_of_week(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Average lyrical mood score grouped by day of week (0=Sun … 6=Sat)."""
+    rows = (
+        db.query(
+            func.extract("dow", Listen.played_at).label("dow"),
+            func.avg(Track.valence).label("avg_valence"),
+            func.count(Listen.listen_id).label("count"),
+        )
+        .join(Track, Listen.track_id == Track.track_id)
+        .filter(
+            Listen.user_id == current_user.user_id,
+            Track.valence.isnot(None),
+        )
+        .group_by(func.extract("dow", Listen.played_at))
+        .order_by(func.extract("dow", Listen.played_at))
+        .all()
+    )
+    days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+    return [
+        {"day": days[int(r.dow)], "dow": int(r.dow), "avg_valence": round(float(r.avg_valence), 3), "count": r.count}
+        for r in rows
+    ]
+
+
+@router.get("/artist-mood")
+async def get_artist_mood(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Average lyrical mood per artist (artists with 3+ listens)."""
+    rows = (
+        db.query(
+            Track.artists,
+            func.avg(Track.valence).label("avg_valence"),
+            func.count(Listen.listen_id).label("plays"),
+        )
+        .join(Listen, Listen.track_id == Track.track_id)
+        .filter(
+            Listen.user_id == current_user.user_id,
+            Track.valence.isnot(None),
+        )
+        .group_by(Track.artists)
+        .having(func.count(Listen.listen_id) >= 3)
+        .order_by(func.avg(Track.valence))
+        .limit(20)
+        .all()
+    )
+    result = []
+    for r in rows:
+        artist = r.artists[0] if isinstance(r.artists, list) and r.artists else str(r.artists)
+        result.append({
+            "artist": artist,
+            "avg_valence": round(float(r.avg_valence), 3),
+            "plays": r.plays,
+        })
+    return result

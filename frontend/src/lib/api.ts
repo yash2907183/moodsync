@@ -50,6 +50,18 @@ export async function getAnalysisStatus(): Promise<{ pending: number }> {
   return request("/api/tracks/analysis-status")
 }
 
+export async function getTimeOfDay(): Promise<{ hour: number; avg_valence: number; count: number }[]> {
+  return request("/api/insights/time-of-day")
+}
+
+export async function getDayOfWeek(): Promise<{ day: string; dow: number; avg_valence: number; count: number }[]> {
+  return request("/api/insights/day-of-week")
+}
+
+export async function getArtistMood(): Promise<{ artist: string; avg_valence: number; plays: number }[]> {
+  return request("/api/insights/artist-mood")
+}
+
 export async function getTimeline(days = 30): Promise<TimelinePoint[]> {
   return request(`/api/insights/timeline?days=${days}`)
 }
