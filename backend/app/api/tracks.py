@@ -204,7 +204,8 @@ async def sync_listening_history(
             if not t:
                 continue
             has_lyrics = db.query(Lyric).filter(Lyric.track_id == t.track_id).first()
-            if not has_lyrics and t.valence is None:
+            # Retry if: no lyrics AND (valence never set OR valence=0.0 neutral placeholder from a failed fetch)
+            if not has_lyrics and (t.valence is None or t.valence == 0.0):
                 artist = t.artists[0] if isinstance(t.artists, list) and t.artists else str(t.artists)
                 tracks_needing_lyrics.append({
                     "track_id": t.track_id,
