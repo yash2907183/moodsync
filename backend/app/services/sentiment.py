@@ -30,11 +30,55 @@ def _get_multilingual_pipeline(device: int = -1):
     return _multilingual_pipeline
 
 
+_fasttext_model = None
+
+
+def _load_fasttext_model():
+    """Download the 917 KB fastText language ID model on first use."""
+    global _fasttext_model
+    if _fasttext_model is not None:
+        return _fasttext_model
+    try:
+        import fasttext
+        import urllib.request, os
+        path = "/tmp/fasttext_lid.ftz"
+        if not os.path.exists(path):
+            logger.info("Downloading fastText language ID model (917 KB)…")
+            urllib.request.urlretrieve(
+                "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz",
+                path,
+            )
+        _fasttext_model = fasttext.load_model(path)
+        logger.info("fastText language ID model loaded.")
+    except Exception as e:
+        logger.warning(f"fastText unavailable ({e}) — will fall back to langdetect.")
+        _fasttext_model = None
+    return _fasttext_model
+
+
 def detect_language(text: str) -> str:
-    """Detect language of text. Returns ISO 639-1 code e.g. 'en', 'hi', 'ur'."""
+    """
+    Detect language using fastText (primary) with langdetect as fallback.
+    fastText handles Romanized/transliterated text (e.g. Romanized Hindi)
+    significantly better than langdetect, which misclassifies it as English.
+    """
+    clean = text.replace("\n", " ").strip()[:500]
+    if not clean:
+        return "en"
+
+    # Primary: fastText (supports 176 languages, handles Romanized scripts)
+    model = _load_fasttext_model()
+    if model is not None:
+        try:
+            labels, _ = model.predict(clean, k=1)
+            return labels[0].replace("__label__", "")
+        except Exception:
+            pass
+
+    # Fallback: langdetect
     try:
         from langdetect import detect
-        return detect(text[:500])   # sample first 500 chars for speed
+        return detect(clean)
     except Exception:
         return "en"
 

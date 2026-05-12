@@ -19,6 +19,7 @@ torch>=2.1.0
 tokenizers>=0.15.0
 vaderSentiment==3.3.2
 langdetect>=1.0.9
+fasttext-wheel>=0.9.2
 
 # Time Series
 statsmodels>=0.14.2
