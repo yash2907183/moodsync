@@ -126,12 +126,18 @@ async def predict_mood(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Forecast next `horizon` days of valence using Holt exponential smoothing."""
-    from statsmodels.tsa.holtwinters import SimpleExpSmoothing, Holt
+    """
+    Forecast next `horizon` days of lyrical valence.
+    Model selection (by available data points):
+      < 7  days  → SimpleExpSmoothing (SES)
+      7-13 days  → Holt double exponential (trend)
+      ≥ 14 days  → ExponentialSmoothing ETS (trend + damping), optimised AIC
+    Also returns backtesting MAE over the last min(7, n//3) held-out days.
+    """
+    from statsmodels.tsa.holtwinters import ExponentialSmoothing, SimpleExpSmoothing, Holt
     import pandas as pd
     import numpy as np
 
-    # Fetch all available daily valence for this user
     daily = (
         db.query(
             func.date(Listen.played_at).label("date"),
@@ -153,67 +159,93 @@ async def predict_mood(
             detail="Not enough data for a forecast. You need at least 3 days of listening history.",
         )
 
-    # Build a daily-frequency series, filling gaps with linear interpolation
-    dates = [str(d.date) for d in daily]
+    dates  = [str(d.date) for d in daily]
     values = [float(d.avg_valence) for d in daily]
-    idx = pd.date_range(start=dates[0], end=dates[-1], freq="D")
+    idx    = pd.date_range(start=dates[0], end=dates[-1], freq="D")
     series = pd.Series(values, index=pd.to_datetime(dates)).reindex(idx).interpolate("linear")
 
-    actual_days = len(daily)   # real measured days (what the user sees)
-    n_points = len(series)     # interpolated series length (used for model only)
-    sparse = actual_days < 14  # warn the UI to show wide uncertainty
+    actual_days = len(daily)
+    n           = len(series)
+    sparse      = actual_days < 14
 
-    hist_mean = float(np.mean(values))
-    hist_min = float(np.min(values))
-    hist_max = float(np.max(values))
-    # Allow ±20% of the observed range beyond the historical bounds
-    obs_range = max(hist_max - hist_min, 0.01)
-    clip_lo = max(0.0, hist_min - 0.2 * obs_range)
-    clip_hi = min(1.0, hist_max + 0.2 * obs_range)
+    hist_mean  = float(np.mean(values))
+    obs_range  = max(float(np.max(values)) - float(np.min(values)), 0.01)
+    clip_lo    = max(-1.0, float(np.min(values)) - 0.2 * obs_range)
+    clip_hi    = min(1.0,  float(np.max(values)) + 0.2 * obs_range)
 
-    # Choose model: Holt (trend) when ≥7 points, SimpleExpSmoothing otherwise
+    def _fit(arr):
+        if len(arr) >= 14:
+            # Full ETS with additive trend + damping, AIC-optimised
+            try:
+                return ExponentialSmoothing(
+                    arr, trend="add", damped_trend=True,
+                    initialization_method="estimated"
+                ).fit(optimized=True)
+            except Exception:
+                pass
+        if len(arr) >= 7:
+            try:
+                return Holt(arr, initialization_method="estimated").fit(optimized=True)
+            except Exception:
+                pass
+        return SimpleExpSmoothing(arr, initialization_method="estimated").fit(optimized=True)
+
+    # ── Backtesting MAE ────────────────────────────────────────────────────
+    # Hold out the last k days, train on the rest, measure 1-step-ahead MAE
+    k = min(7, max(1, n // 3))
+    mae = None
+    model_name = "SES"
+    if n - k >= 3:
+        try:
+            train = series.values[:-k]
+            test  = series.values[-k:]
+            preds = []
+            for i in range(k):
+                m = _fit(np.append(train, series.values[n - k: n - k + i]))
+                preds.append(m.forecast(1)[0])
+            mae = round(float(np.mean(np.abs(np.array(preds) - test))), 4)
+        except Exception:
+            pass
+
+    # ── Final model on full series ─────────────────────────────────────────
     try:
-        if n_points >= 7:
-            model = Holt(series.values, initialization_method="estimated").fit(optimized=True)
-        else:
-            model = SimpleExpSmoothing(series.values, initialization_method="estimated").fit(optimized=True)
+        model = _fit(series.values)
         forecast_vals = model.forecast(horizon)
+        if n >= 14:
+            model_name = "ETS(A,Ad,N)"
+        elif n >= 7:
+            model_name = "Holt"
+        fitted    = model.fittedvalues
+        residuals = series.values - fitted[:len(series)]
+        sigma     = float(np.std(residuals)) if len(residuals) > 1 else obs_range * 0.3
     except Exception as e:
-        logger.warning(f"Smoothing failed ({e}), falling back to mean forecast")
-        forecast_vals = [hist_mean] * horizon
+        logger.warning(f"Forecast model failed ({e}), falling back to mean")
+        forecast_vals = np.array([hist_mean] * horizon)
+        sigma         = obs_range * 0.3
 
-    # Residual std for a simple ±1σ confidence band
-    fitted = model.fittedvalues if hasattr(model, "fittedvalues") else series.values
-    residuals = series.values - fitted[: len(series)]
-    sigma = float(np.std(residuals)) if len(residuals) > 1 else obs_range * 0.3
-
-    last_date = pd.to_datetime(dates[-1])
-    forecast_dates = [
-        (last_date + timedelta(days=i + 1)).strftime("%Y-%m-%d") for i in range(horizon)
-    ]
+    last_date      = pd.to_datetime(dates[-1])
+    forecast_dates = [(last_date + timedelta(days=i + 1)).strftime("%Y-%m-%d") for i in range(horizon)]
 
     forecast = [
         {
-            "date": forecast_dates[i],
+            "date":   forecast_dates[i],
             "valence": round(float(np.clip(forecast_vals[i], clip_lo, clip_hi)), 3),
-            "lower": round(float(np.clip(forecast_vals[i] - sigma, clip_lo, clip_hi)), 3),
-            "upper": round(float(np.clip(forecast_vals[i] + sigma, clip_lo, clip_hi)), 3),
+            "lower":  round(float(np.clip(forecast_vals[i] - sigma, clip_lo, clip_hi)), 3),
+            "upper":  round(float(np.clip(forecast_vals[i] + sigma, clip_lo, clip_hi)), 3),
         }
         for i in range(horizon)
     ]
 
-    # Return historical series + forecast
-    history = [
-        {"date": str(d.date), "valence": round(float(d.avg_valence), 3)}
-        for d in daily
-    ]
+    history = [{"date": str(d.date), "valence": round(float(d.avg_valence), 3)} for d in daily]
 
     return {
-        "history": history,
-        "forecast": forecast,
+        "history":     history,
+        "forecast":    forecast,
         "sparse_data": sparse,
         "data_points": actual_days,
-        "hist_mean": round(hist_mean, 3),
+        "hist_mean":   round(hist_mean, 3),
+        "model":       model_name,
+        "backtest_mae": mae,
     }
 
 

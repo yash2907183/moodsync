@@ -4,7 +4,7 @@ import {
   ResponsiveContainer, ComposedChart, Area, Line,
   XAxis, YAxis, Tooltip, ReferenceLine,
 } from "recharts"
-import { getMoodForecast, getForecastNarrative } from "@/lib/api"
+import { getMoodForecast } from "@/lib/api"
 import { useTheme } from "@/lib/theme"
 
 interface ChartPoint {
@@ -46,8 +46,8 @@ export default function MoodForecast() {
   const [yDomain, setYDomain]       = useState<[number, number]>([0, 0.2])
   const [loading, setLoading]       = useState(true)
   const [error, setError]           = useState<string | null>(null)
-  const [narrative, setNarrative]   = useState<string | null>(null)
-  const [narrativeLoading, setNarrativeLoading] = useState(false)
+  const [model, setModel]           = useState<string | null>(null)
+  const [mae, setMae]               = useState<number | null>(null)
 
   useEffect(() => {
     getMoodForecast(7)
@@ -77,12 +77,8 @@ export default function MoodForecast() {
         setTrend(weekTrend(res.forecast))
         setSparse(res.sparse_data)
         setDataPoints(res.data_points)
-
-        setNarrativeLoading(true)
-        getForecastNarrative(7)
-          .then((r) => setNarrative(r.narrative ?? null))
-          .catch(() => {})
-          .finally(() => setNarrativeLoading(false))
+        setModel(res.model ?? null)
+        setMae(res.backtest_mae ?? null)
       })
       .catch((e: Error) => setError(e.message ?? "Could not load forecast"))
       .finally(() => setLoading(false))
@@ -186,19 +182,18 @@ export default function MoodForecast() {
         <span className="text-[10px] text-slate-300 dark:text-slate-700">lyrical sentiment score</span>
       </div>
 
-      {(narrativeLoading || narrative) && (
-        <div className="mt-4 border-t border-slate-100 dark:border-[#1e1e2a] pt-4">
-          <div className="flex items-start gap-2.5">
-            <span className="text-base mt-0.5">✨</span>
-            {narrativeLoading ? (
-              <div className="flex-1 space-y-2 animate-pulse">
-                <div className="h-3 bg-slate-100 dark:bg-[#1e1e2a] rounded w-full" />
-                <div className="h-3 bg-slate-100 dark:bg-[#1e1e2a] rounded w-4/5" />
-              </div>
-            ) : (
-              <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">{narrative}</p>
-            )}
-          </div>
+      {(model || mae !== null) && (
+        <div className="mt-3 flex items-center gap-3 flex-wrap">
+          {model && (
+            <span className="text-[10px] px-2 py-1 rounded-lg bg-slate-50 dark:bg-[#1a1a22] text-slate-400 border border-slate-100 dark:border-[#1e1e2a]">
+              model: {model}
+            </span>
+          )}
+          {mae !== null && (
+            <span className="text-[10px] px-2 py-1 rounded-lg bg-slate-50 dark:bg-[#1a1a22] text-slate-400 border border-slate-100 dark:border-[#1e1e2a]">
+              backtest MAE: {mae.toFixed(3)}
+            </span>
+          )}
         </div>
       )}
     </div>

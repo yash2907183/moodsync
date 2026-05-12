@@ -5,7 +5,6 @@ import type { TimelinePoint, EmotionsResponse, UserInfo } from "@/types"
 import { getMoodTheme } from "@/lib/mood-theme"
 import { useTheme } from "@/lib/theme"
 import StatCard from "@/components/ui/StatCard"
-import MoodSummary from "@/components/dashboard/MoodSummary"
 
 function greeting() {
   const h = new Date().getHours()
@@ -108,8 +107,6 @@ export default function OverviewPage() {
         <StatCard label="Days Tracked" value={timeline.length > 0 ? timeline.length : "—"} sub="keep syncing to grow" accentColor="#f59e0b" />
       </div>
 
-      {/* AI Mood Summary */}
-      <MoodSummary />
     </div>
   )
 }

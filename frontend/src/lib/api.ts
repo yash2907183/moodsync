@@ -169,6 +169,8 @@ export async function getMoodForecast(horizon = 7): Promise<{
   sparse_data: boolean
   data_points: number
   hist_mean: number
+  model: string
+  backtest_mae: number | null
 }> {
   return request(`/api/insights/predict?horizon=${horizon}`)
 }
