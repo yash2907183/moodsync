@@ -7,19 +7,72 @@ import type { TrackNeedingLyrics } from "@/lib/api"
 import { useTheme } from "@/lib/theme"
 import type { UserInfo } from "@/types"
 
-async function fetchLyricsFromBrowser(track: TrackNeedingLyrics): Promise<string> {
+function cleanTitle(title: string): string {
+  return title
+    .replace(/\s*\(feat\..*?\)/gi, "")
+    .replace(/\s*feat\..*$/gi, "")
+    .replace(/\s*\(with .*?\)/gi, "")
+    .replace(/\s*-\s*(Remaster|Remix|Radio Edit|Live|Acoustic|Official).*$/gi, "")
+    .replace(/\s*\[.*?\]/g, "")
+    .trim()
+}
+
+async function tryLyricsOvh(artist: string, title: string): Promise<string> {
   try {
-    const artist = encodeURIComponent(track.artist)
-    const title  = encodeURIComponent(track.name)
-    const res    = await fetch(`https://lyrics.ovh/v1/${artist}/${title}`)
+    const res = await fetch(
+      `https://lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`,
+    )
     if (!res.ok) return ""
-    const data   = await res.json()
+    const data = await res.json()
     return typeof data.lyrics === "string" && data.lyrics.trim().length > 50
       ? data.lyrics.trim()
       : ""
   } catch {
     return ""
   }
+}
+
+async function tryChartLyrics(artist: string, title: string): Promise<string> {
+  try {
+    const url = `https://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(title)}`
+    const res = await fetch(url)
+    if (!res.ok) return ""
+    const text = await res.text()
+    const parser = new DOMParser()
+    const xml = parser.parseFromString(text, "text/xml")
+    const lyric = xml.querySelector("Lyric")?.textContent ?? ""
+    return lyric.trim().length > 50 ? lyric.trim() : ""
+  } catch {
+    return ""
+  }
+}
+
+async function fetchLyricsFromBrowser(track: TrackNeedingLyrics): Promise<string> {
+  const originalTitle = track.name
+  const cleanedTitle  = cleanTitle(track.name)
+  const artist        = track.artist
+
+  // Strategy 1: lyrics.ovh with original title
+  let lyrics = await tryLyricsOvh(artist, originalTitle)
+  if (lyrics) return lyrics
+
+  // Strategy 2: lyrics.ovh with cleaned title (strip feat., remixes etc.)
+  if (cleanedTitle !== originalTitle) {
+    lyrics = await tryLyricsOvh(artist, cleanedTitle)
+    if (lyrics) return lyrics
+  }
+
+  // Strategy 3: ChartLyrics with cleaned title
+  lyrics = await tryChartLyrics(artist, cleanedTitle || originalTitle)
+  if (lyrics) return lyrics
+
+  // Strategy 4: ChartLyrics with original title (different format may match)
+  if (cleanedTitle !== originalTitle) {
+    lyrics = await tryChartLyrics(artist, originalTitle)
+    if (lyrics) return lyrics
+  }
+
+  return ""
 }
 
 const NAV = [
