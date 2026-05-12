@@ -32,14 +32,27 @@ export async function getMe(): Promise<UserInfo> {
   return request("/api/auth/me")
 }
 
+export interface TrackNeedingLyrics {
+  track_id: string
+  name: string
+  artist: string
+}
+
 export async function syncTracks(
   spotifyToken: string,
   limit = 50,
-): Promise<{ message: string; count: number; last_sync: string }> {
+): Promise<{ message: string; count: number; last_sync: string; tracks_needing_lyrics: TrackNeedingLyrics[] }> {
   return request(
     `/api/tracks/sync?spotify_access_token=${encodeURIComponent(spotifyToken)}&limit=${limit}`,
     { method: "POST" },
   )
+}
+
+export async function submitLyrics(trackId: string, lyricsText: string): Promise<{ status: string; valence?: number }> {
+  return request("/api/tracks/lyrics", {
+    method: "POST",
+    body: JSON.stringify({ track_id: trackId, lyrics_text: lyricsText }),
+  })
 }
 
 export async function getRecentTracks(limit = 20): Promise<ListenRecord[]> {

@@ -2,9 +2,25 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { getJwt, getSpotifyToken, isSpotifyTokenExpired, clearTokens } from "@/lib/auth"
-import { getMe, syncTracks, getAnalysisStatus } from "@/lib/api"
+import { getMe, syncTracks, submitLyrics, getAnalysisStatus } from "@/lib/api"
+import type { TrackNeedingLyrics } from "@/lib/api"
 import { useTheme } from "@/lib/theme"
 import type { UserInfo } from "@/types"
+
+async function fetchLyricsFromBrowser(track: TrackNeedingLyrics): Promise<string> {
+  try {
+    const artist = encodeURIComponent(track.artist)
+    const title  = encodeURIComponent(track.name)
+    const res    = await fetch(`https://lyrics.ovh/v1/${artist}/${title}`)
+    if (!res.ok) return ""
+    const data   = await res.json()
+    return typeof data.lyrics === "string" && data.lyrics.trim().length > 50
+      ? data.lyrics.trim()
+      : ""
+  } catch {
+    return ""
+  }
+}
 
 const NAV = [
   { href: "/dashboard",          label: "Overview",  icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
@@ -67,6 +83,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     try {
       const res = await syncTracks(tok)
       setSyncMsg(`Synced ${res.count} tracks`)
+
+      // Fetch lyrics from browser (residential IP) for tracks that need them
+      const needLyrics = res.tracks_needing_lyrics ?? []
+      if (needLyrics.length > 0) {
+        setPending(needLyrics.length)
+        // Process in batches of 5 to avoid overwhelming the browser
+        for (let i = 0; i < needLyrics.length; i += 5) {
+          const batch = needLyrics.slice(i, i + 5)
+          await Promise.allSettled(
+            batch.map(async (track) => {
+              const lyrics = await fetchLyricsFromBrowser(track)
+              await submitLyrics(track.track_id, lyrics)
+              setPending(p => Math.max(0, p - 1))
+            })
+          )
+        }
+        setPending(0)
+      }
+
       const { pending: p } = await getAnalysisStatus()
       setPending(p)
       if (p > 0) startPoll()

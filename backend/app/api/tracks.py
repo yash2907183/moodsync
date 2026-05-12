@@ -4,7 +4,7 @@ Tracks API endpoints
 import logging
 from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 import traceback
 
@@ -92,7 +92,6 @@ async def get_top_tracks(
 
 @router.post("/sync")
 async def sync_listening_history(
-    background_tasks: BackgroundTasks,
     spotify_access_token: str,
     limit: int = 50,
     current_user: User = Depends(get_current_user),
@@ -197,19 +196,29 @@ async def sync_listening_history(
         
         db.commit()
         
-        # Schedule background task to fetch lyrics
-        background_tasks.add_task(
-            fetch_lyrics_for_tracks,
-            db,
-            track_ids
-        )
-        
-        logger.info(f"Synced {synced_count} tracks for user {current_user.user_id}")
-        
+        # Find tracks that still need lyrics (no Lyric record + no valence)
+        # These will be fetched by the browser using the user's residential IP
+        tracks_needing_lyrics = []
+        for spotify_id in track_ids:
+            t = db.query(Track).filter(Track.spotify_id == spotify_id).first()
+            if not t:
+                continue
+            has_lyrics = db.query(Lyric).filter(Lyric.track_id == t.track_id).first()
+            if not has_lyrics and t.valence is None:
+                artist = t.artists[0] if isinstance(t.artists, list) and t.artists else str(t.artists)
+                tracks_needing_lyrics.append({
+                    "track_id": t.track_id,
+                    "name": t.name,
+                    "artist": artist,
+                })
+
+        logger.info(f"Synced {synced_count} tracks for user {current_user.user_id} — {len(tracks_needing_lyrics)} need lyrics")
+
         return {
             "message": "Successfully synced listening history",
             "count": synced_count,
-            "last_sync": current_user.last_sync
+            "last_sync": current_user.last_sync,
+            "tracks_needing_lyrics": tracks_needing_lyrics,
         }
        
     except Exception as e:
@@ -366,10 +375,10 @@ async def get_track_lyrics(
         Lyrics information
     """
     lyrics = db.query(Lyric).filter(Lyric.track_id == track_id).first()
-    
+
     if not lyrics:
         raise HTTPException(status_code=404, detail="Lyrics not found")
-    
+
     return {
         "track_id": lyrics.track_id,
         "text": lyrics.text,
@@ -377,3 +386,79 @@ async def get_track_lyrics(
         "source": lyrics.source,
         "is_instrumental": lyrics.is_instrumental
     }
+
+
+@router.post("/lyrics")
+async def submit_lyrics(
+    payload: dict,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Accept lyrics fetched by the browser (using the user's residential IP)
+    and run sentiment analysis server-side.
+    """
+    track_id   = payload.get("track_id")
+    lyrics_text = payload.get("lyrics_text", "").strip()
+
+    if not track_id:
+        raise HTTPException(status_code=422, detail="track_id required")
+
+    track = db.query(Track).filter(Track.track_id == track_id).first()
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+
+    # Skip if already scored
+    if track.valence is not None:
+        return {"status": "already_scored"}
+
+    # Save lyrics
+    existing = db.query(Lyric).filter(Lyric.track_id == track_id).first()
+    if not existing:
+        if not lyrics_text:
+            # No lyrics from browser either — assign neutral
+            track.valence = 0.0
+            track.energy  = 0.0
+            db.commit()
+            return {"status": "no_lyrics", "valence": 0.0}
+
+        db.add(Lyric(
+            track_id=track_id,
+            source="browser_lyricsovh",
+            text=lyrics_text,
+            is_instrumental=False,
+        ))
+        db.commit()
+
+    text = lyrics_text or (existing.text if existing else "")
+    if not text:
+        track.valence = 0.0
+        track.energy  = 0.0
+        db.commit()
+        return {"status": "no_lyrics", "valence": 0.0}
+
+    # Run sentiment
+    from app.services.sentiment import get_sentiment_analyzer
+    analyzer = get_sentiment_analyzer()
+    result   = analyzer.analyze_comprehensive(text)
+
+    track.valence = result["valence"]
+    track.energy  = result["arousal"]
+
+    existing_score = db.query(Score).filter(Score.track_id == track_id).first()
+    if not existing_score:
+        db.add(Score(
+            track_id=track_id,
+            model="hybrid_roberta",
+            polarity=result["polarity"],
+            valence_score=result["valence"],
+            arousal_score=result["arousal"],
+            joy=result["emotions"].get("joy", 0),
+            sadness=result["emotions"].get("sadness", 0),
+            anger=result["emotions"].get("anger", 0),
+            fear=result["emotions"].get("fear", 0),
+            optimism=result["emotions"].get("optimism", 0),
+        ))
+    db.commit()
+    logger.info(f"Browser lyrics scored: {track.name} → valence={result['valence']:.3f}")
+    return {"status": "scored", "valence": result["valence"]}
