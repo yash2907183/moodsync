@@ -55,6 +55,37 @@ async def get_analysis_status(
     return {"pending": pending}
 
 
+@router.get("/stuck")
+async def get_stuck_tracks(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Return tracks the user has listened to that have no real sentiment score (valence=0 or None)."""
+    rows = (
+        db.query(Track.track_id, Track.name, Track.artists, Track.valence)
+        .join(Listen, Listen.track_id == Track.track_id)
+        .join(Lyric, Lyric.track_id == Track.track_id, isouter=True)
+        .filter(
+            Listen.user_id == current_user.user_id,
+            (Track.valence.is_(None)) | (Track.valence == 0.0),
+        )
+        .distinct()
+        .all()
+    )
+    return {
+        "count": len(rows),
+        "tracks": [
+            {
+                "track_id": r.track_id,
+                "name": r.name,
+                "artist": r.artists[0] if isinstance(r.artists, list) and r.artists else str(r.artists),
+                "valence": r.valence,
+            }
+            for r in rows
+        ],
+    }
+
+
 @router.get("/top")
 async def get_top_tracks(
     limit: int = 10,
