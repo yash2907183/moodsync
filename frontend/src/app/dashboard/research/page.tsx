@@ -1,7 +1,13 @@
 "use client"
 import { useEffect, useState } from "react"
 import { getCalibration, getRegulation, getLanguageComparison } from "@/lib/api"
-import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip, ReferenceLine, Line } from "recharts"
+
+type CalibData   = Awaited<ReturnType<typeof getCalibration>>
+type RegData     = Awaited<ReturnType<typeof getRegulation>>
+type RegSession  = RegData["sessions"][number]
+type LangData    = Awaited<ReturnType<typeof getLanguageComparison>>
+type LangGroup   = LangData["groups"][number]
+import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts"
 import { useTheme } from "@/lib/theme"
 
 /* ── Helpers ─────────────────────────────────────────── */
@@ -28,7 +34,7 @@ function Pill({ label, value, color }: { label: string; value: string | number; 
 function CalibrationPanel() {
   const { theme } = useTheme()
   const isDark = theme === "dark"
-  const [data, setData]     = useState<any>(null)
+  const [data, setData]     = useState<CalibData | null>(null)
   const [error, setError]   = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -75,7 +81,7 @@ function CalibrationPanel() {
                   tick={{ fontSize: 9, fill: axisColor }} axisLine={false} tickLine={false} width={40}
                   label={{ value: "Your mood", angle: -90, position: "insideLeft", fontSize: 8, fill: axisColor }} />
                 <Tooltip contentStyle={tooltipStyle}
-                  formatter={(v: unknown, n: string) => [typeof v === "number" ? v.toFixed(2) : v, n === "universal_valence" ? "Model" : "Your mood"]}
+                  formatter={(v: unknown, n: unknown) => [`${typeof v === "number" ? v.toFixed(2) : v}`, n === "universal_valence" ? "Model" : "Your mood"] as [string, string]}
                   labelFormatter={() => ""} />
                 <ReferenceLine x={0} stroke={isDark ? "#2a2a38" : "#e2e8f0"} />
                 <ReferenceLine y={0} stroke={isDark ? "#2a2a38" : "#e2e8f0"} />
@@ -96,7 +102,7 @@ function CalibrationPanel() {
 
 /* ── 2. Emotion Regulation ──────────────────────────── */
 function RegulationPanel() {
-  const [data, setData]     = useState<any>(null)
+  const [data, setData]     = useState<RegData | null>(null)
   const [error, setError]   = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -127,7 +133,7 @@ function RegulationPanel() {
               {Object.entries(data.strategy_distribution as Record<string, number>)
                 .sort(([, a], [, b]) => b - a)
                 .map(([strategy, count]) => {
-                  const session = data.sessions.find((s: any) => s.strategy === strategy)
+                  const session = data.sessions.find((s: RegSession) => s.strategy === strategy)
                   const color   = session?.color ?? "#7c3aed"
                   const pct     = Math.round((count / data.total_sessions) * 100)
                   return (
@@ -147,7 +153,7 @@ function RegulationPanel() {
           <div>
             <p className="text-xs text-slate-400 mb-2">Recent sessions</p>
             <div className="space-y-2 max-h-56 overflow-y-auto">
-              {[...data.sessions].reverse().map((s: any, i: number) => (
+              {[...data.sessions].reverse().map((s: RegSession, i: number) => (
                 <div key={i} className="flex items-start gap-3 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-[#1a1a22]">
                   <div className="w-2 h-2 rounded-full mt-1 shrink-0" style={{ background: s.color }} />
                   <div className="flex-1 min-w-0">
@@ -175,7 +181,7 @@ const LANG_NAMES: Record<string, string> = {
 }
 
 function LanguagePanel() {
-  const [data, setData]     = useState<any>(null)
+  const [data, setData]     = useState<LangData | null>(null)
   const [error, setError]   = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -203,7 +209,7 @@ function LanguagePanel() {
           <p className="text-xs text-slate-400 italic">{data.note}</p>
 
           <div className="grid gap-4 md:grid-cols-2">
-            {data.groups.map((g: any) => {
+            {data.groups.map((g: LangGroup) => {
               const name = LANG_NAMES[g.language] ?? g.language.toUpperCase()
               const isEn = g.language === "en"
               const moodLabel = g.avg_valence > 0.1 ? "Uplifting" : g.avg_valence < -0.1 ? "Heavy" : "Neutral"

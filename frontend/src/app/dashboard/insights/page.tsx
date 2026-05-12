@@ -4,8 +4,6 @@ import { getTimeline, getTimeOfDay, getDayOfWeek } from "@/lib/api"
 import type { TimelinePoint } from "@/types"
 import MoodTimeline from "@/components/charts/MoodTimeline"
 import MoodForecast from "@/components/dashboard/MoodForecast"
-import { useTheme } from "@/lib/theme"
-
 /* ── helpers ─────────────────────────────────────────── */
 function moodLabel(v: number): { text: string; color: string } {
   if (v > 0.3)  return { text: "Uplifting",  color: "#10b981" }
