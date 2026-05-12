@@ -165,7 +165,8 @@ async def get_emotion_regulation(
     if len(rows) < 6:
         raise HTTPException(status_code=422, detail="Need more listening history to classify sessions.")
 
-    # Group into sessions (gap > 60 min = new session)
+    # Group into sessions (gap > 60 min = new session, max 25 tracks per session)
+    MAX_SESSION = 25
     sessions: list[list] = []
     current: list = []
     for played_at, valence, name, artists in rows:
@@ -173,7 +174,7 @@ async def get_emotion_regulation(
             current.append((played_at, valence, name, artists))
         else:
             gap_min = (played_at - current[-1][0]).total_seconds() / 60
-            if gap_min > 60:
+            if gap_min > 60 or len(current) >= MAX_SESSION:
                 if len(current) >= 3:
                     sessions.append(current)
                 current = [(played_at, valence, name, artists)]
