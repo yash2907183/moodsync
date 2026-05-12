@@ -17,9 +17,15 @@ function cleanTitle(title: string): string {
     .trim()
 }
 
+function fetchWithTimeout(url: string, ms = 7000): Promise<Response> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), ms)
+  return fetch(url, { signal: ctrl.signal }).finally(() => clearTimeout(timer))
+}
+
 async function tryLyricsOvh(artist: string, title: string): Promise<string> {
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `https://lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`,
     )
     if (!res.ok) return ""
@@ -35,7 +41,7 @@ async function tryLyricsOvh(artist: string, title: string): Promise<string> {
 async function tryChartLyrics(artist: string, title: string): Promise<string> {
   try {
     const url = `https://api.chartlyrics.com/apiv1.asmx/SearchLyricDirect?artist=${encodeURIComponent(artist)}&song=${encodeURIComponent(title)}`
-    const res = await fetch(url)
+    const res = await fetchWithTimeout(url)
     if (!res.ok) return ""
     const text = await res.text()
     const parser = new DOMParser()
