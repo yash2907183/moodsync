@@ -75,6 +75,39 @@ export async function getArtistMood(): Promise<{ artist: string; avg_valence: nu
   return request("/api/insights/artist-mood")
 }
 
+export async function getCalibration(): Promise<{
+  points: { date: string; universal_valence: number; user_mood: number; personal_valence: number }[]
+  n_points: number
+  correlation: number
+  p_value: number
+  slope: number
+  intercept: number
+  strength: string
+  direction: string
+  interpretation: string
+}> {
+  return request("/api/research/calibration")
+}
+
+export async function getRegulation(): Promise<{
+  sessions: { date: string; tracks: number; strategy: string; color: string; mean_valence: number; start_valence: number; end_valence: number; sample_tracks: string[] }[]
+  strategy_distribution: Record<string, number>
+  total_sessions: number
+  dominant_strategy: string
+  interpretation: string
+}> {
+  return request("/api/research/regulation")
+}
+
+export async function getLanguageComparison(): Promise<{
+  groups: { language: string; track_count: number; avg_valence: number; emotions: Record<string, number> }[]
+  english: { language: string; track_count: number; avg_valence: number; emotions: Record<string, number> } | null
+  non_english: { language: string; track_count: number; avg_valence: number; emotions: Record<string, number> }[]
+  note: string
+}> {
+  return request("/api/research/language")
+}
+
 export async function getTimeline(days = 30): Promise<TimelinePoint[]> {
   return request(`/api/insights/timeline?days=${days}`)
 }

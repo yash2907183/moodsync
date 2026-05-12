@@ -98,7 +98,7 @@ async def root():
 
 # --- ROUTER REGISTRATION ---
 # We use a try-except block here so the app doesn't crash if a file is empty
-from app.api import auth, tracks, insights, analysis, mood, summary, playlists, cron
+from app.api import auth, tracks, insights, analysis, mood, summary, playlists, cron, research
 
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
@@ -109,6 +109,7 @@ app.include_router(mood.router, prefix="/api/mood", tags=["Mood"])
 app.include_router(summary.router, prefix="/api/summary", tags=["Summary"])
 app.include_router(playlists.router, prefix="/api/playlists", tags=["Playlists"])
 app.include_router(cron.router, prefix="/api/cron", tags=["Cron"])
+app.include_router(research.router, prefix="/api/research", tags=["Research"])
 
 
 
