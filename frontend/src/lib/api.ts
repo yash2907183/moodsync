@@ -64,11 +64,13 @@ export async function getAnalysisStatus(): Promise<{ pending: number }> {
 }
 
 export async function getTimeOfDay(): Promise<{ hour: number; avg_valence: number; count: number }[]> {
-  return request("/api/insights/time-of-day")
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  return request(`/api/insights/time-of-day?tz=${encodeURIComponent(tz)}`)
 }
 
 export async function getDayOfWeek(): Promise<{ day: string; dow: number; avg_valence: number; count: number }[]> {
-  return request("/api/insights/day-of-week")
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+  return request(`/api/insights/day-of-week?tz=${encodeURIComponent(tz)}`)
 }
 
 export async function getArtistMood(): Promise<{ artist: string; avg_valence: number; plays: number }[]> {

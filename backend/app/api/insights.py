@@ -1,9 +1,8 @@
 import logging
-from typing import List, Dict, Any
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, cast, Text
 
 from app.models import get_db
 from app.models.database import User, Track, Listen, Score
@@ -251,13 +250,15 @@ async def predict_mood(
 
 @router.get("/time-of-day")
 async def get_time_of_day(
+    tz: str = "Asia/Kolkata",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Average lyrical mood score grouped by hour of day (0–23)."""
+    """Average lyrical mood score grouped by hour of day in the user's local timezone."""
+    local_ts = func.timezone(tz, Listen.played_at)
     rows = (
         db.query(
-            func.extract("hour", Listen.played_at).label("hour"),
+            func.extract("hour", local_ts).label("hour"),
             func.avg(Track.valence).label("avg_valence"),
             func.count(Listen.listen_id).label("count"),
         )
@@ -266,8 +267,8 @@ async def get_time_of_day(
             Listen.user_id == current_user.user_id,
             Track.valence.isnot(None),
         )
-        .group_by(func.extract("hour", Listen.played_at))
-        .order_by(func.extract("hour", Listen.played_at))
+        .group_by(func.extract("hour", local_ts))
+        .order_by(func.extract("hour", local_ts))
         .all()
     )
     return [
@@ -278,13 +279,15 @@ async def get_time_of_day(
 
 @router.get("/day-of-week")
 async def get_day_of_week(
+    tz: str = "Asia/Kolkata",
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Average lyrical mood score grouped by day of week (0=Sun … 6=Sat)."""
+    """Average lyrical mood score grouped by day of week in the user's local timezone."""
+    local_ts = func.timezone(tz, Listen.played_at)
     rows = (
         db.query(
-            func.extract("dow", Listen.played_at).label("dow"),
+            func.extract("dow", local_ts).label("dow"),
             func.avg(Track.valence).label("avg_valence"),
             func.count(Listen.listen_id).label("count"),
         )
@@ -293,8 +296,8 @@ async def get_day_of_week(
             Listen.user_id == current_user.user_id,
             Track.valence.isnot(None),
         )
-        .group_by(func.extract("dow", Listen.played_at))
-        .order_by(func.extract("dow", Listen.played_at))
+        .group_by(func.extract("dow", local_ts))
+        .order_by(func.extract("dow", local_ts))
         .all()
     )
     days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
@@ -321,7 +324,7 @@ async def get_artist_mood(
             Listen.user_id == current_user.user_id,
             Track.valence.isnot(None),
         )
-        .group_by(Track.artists)
+        .group_by(cast(Track.artists, Text))
         .having(func.count(Listen.listen_id) >= 3)
         .order_by(func.avg(Track.valence))
         .limit(20)
