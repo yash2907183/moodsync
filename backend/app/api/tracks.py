@@ -449,7 +449,15 @@ async def submit_lyrics(
     existing = db.query(Lyric).filter(Lyric.track_id == track_id).first()
     if not existing:
         if not lyrics_text:
-            # No lyrics from browser either — assign neutral
+            # Browser also found nothing — stamp a dummy Lyric so this track
+            # stops re-appearing in tracks_needing_lyrics on every sync.
+            db.add(Lyric(
+                track_id=track_id,
+                source="none",
+                text="",
+                is_instrumental=False,
+                confidence=0.0,
+            ))
             track.valence = 0.0
             track.energy  = 0.0
             db.commit()
