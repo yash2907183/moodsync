@@ -61,15 +61,16 @@ async def get_stuck_tracks(
     db: Session = Depends(get_db),
 ):
     """Return tracks the user has listened to that have no real sentiment score (valence=0 or None)."""
-    rows = (
-        db.query(Track.track_id, Track.name, Track.artists, Track.valence)
-        .join(Listen, Listen.track_id == Track.track_id)
-        .join(Lyric, Lyric.track_id == Track.track_id, isouter=True)
-        .filter(
-            Listen.user_id == current_user.user_id,
-            (Track.valence.is_(None)) | (Track.valence == 0.0),
-        )
+    listened_ids = (
+        db.query(Listen.track_id)
+        .filter(Listen.user_id == current_user.user_id)
         .distinct()
+        .subquery()
+    )
+    rows = (
+        db.query(Track)
+        .join(listened_ids, Track.track_id == listened_ids.c.track_id)
+        .filter((Track.valence.is_(None)) | (Track.valence == 0.0))
         .all()
     )
     return {
@@ -83,6 +84,7 @@ async def get_stuck_tracks(
             }
             for r in rows
         ],
+
     }
 
 
