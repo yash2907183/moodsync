@@ -38,7 +38,8 @@ lastfm = LastFmService()
 def run():
     db = SessionLocal()
     try:
-        tracks = db.query(Track).filter(Track.tags.is_(None)).all()
+        all_tracks = db.query(Track).all()
+        tracks = [t for t in all_tracks if not t.tags]
         print(f"📊  Found {len(tracks)} tracks without tags.\n")
 
         tagged = 0
