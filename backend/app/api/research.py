@@ -340,6 +340,7 @@ async def get_genre_mood(
     """
     from app.services.lastfm import canonical_genre
 
+    from sqlalchemy import cast, Text
     rows = (
         db.query(Track.tags, Track.valence, Score.joy, Score.sadness,
                  Score.anger, Score.fear, Score.optimism,
@@ -351,7 +352,7 @@ async def get_genre_mood(
             Track.tags.isnot(None),
             Track.valence.isnot(None),
         )
-        .group_by(Track.track_id, Track.tags, Track.valence,
+        .group_by(Track.track_id, cast(Track.tags, Text), Track.valence,
                   Score.joy, Score.sadness, Score.anger, Score.fear, Score.optimism)
         .all()
     )
