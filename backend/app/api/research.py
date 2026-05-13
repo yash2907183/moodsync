@@ -114,7 +114,32 @@ async def get_personal_calibration(
 
 # ── 2. Emotion Regulation ──────────────────────────────────────────────────
 
-def _classify_session(vals: list) -> dict:
+# Tags that indicate high musical energy regardless of lyrical sentiment
+_HIGH_ENERGY_TAGS = {
+    "hip-hop", "hip hop", "rap", "trap", "drill", "grime", "dancehall",
+    "dance", "electronic", "edm", "house", "techno", "drum and bass",
+    "dnb", "club", "party", "workout", "hype", "bounce", "crunk",
+}
+
+# Tags that confirm genuine low-energy / sad listening
+_SAD_TAGS = {
+    "sad", "melancholy", "melancholic", "depressing", "heartbreak",
+    "ballad", "acoustic", "singer-songwriter", "emo", "grief", "crying",
+}
+
+
+def _session_is_high_energy(tags_per_track: list) -> bool:
+    """Return True if the majority of tracks in the session have high-energy tags."""
+    if not tags_per_track:
+        return False
+    high = sum(
+        1 for tags in tags_per_track
+        if tags and any(t in _HIGH_ENERGY_TAGS for t in tags)
+    )
+    return high >= max(1, len(tags_per_track) // 2)
+
+
+def _classify_session(vals: list, tags_per_track: list = None) -> dict:
     if len(vals) < 2:
         return {"strategy": "Single track", "color": "#94a3b8"}
     arr        = np.array(vals)
@@ -124,21 +149,26 @@ def _classify_session(vals: list) -> dict:
     end_v      = float(np.mean(arr[-(max(1, len(arr) // 3)):]))
     slope      = (end_v - start_v) / max(len(arr) - 1, 1)
 
+    high_energy = _session_is_high_energy(tags_per_track or [])
+
     if std_v < 0.08:
         if mean_v < -0.15:
-            return {"strategy": "Rumination",                 "color": "#dc2626"}
+            # Dark lyrics but high-energy music (e.g. drill, rap) → Upregulation
+            if high_energy:
+                return {"strategy": "Upregulation", "color": "#10b981"}
+            return {"strategy": "Rumination",       "color": "#dc2626"}
         elif mean_v > 0.15:
             return {"strategy": "Mood Maintenance (positive)", "color": "#10b981"}
         else:
             return {"strategy": "Mood Maintenance (neutral)",  "color": "#7c3aed"}
     elif slope > 0.05 and start_v < -0.1:
-        return {"strategy": "Mood Repair",       "color": "#34d399"}
+        return {"strategy": "Mood Repair",    "color": "#34d399"}
     elif slope > 0.05:
-        return {"strategy": "Upregulation",      "color": "#10b981"}
+        return {"strategy": "Upregulation",   "color": "#10b981"}
     elif slope < -0.05:
-        return {"strategy": "Downregulation",    "color": "#f87171"}
+        return {"strategy": "Downregulation", "color": "#f87171"}
     else:
-        return {"strategy": "Diversion",         "color": "#f59e0b"}
+        return {"strategy": "Diversion",      "color": "#f59e0b"}
 
 
 @router.get("/regulation")
@@ -152,7 +182,7 @@ async def get_emotion_regulation(
     Sessions = clusters of listens with <60 min gaps.
     """
     rows = (
-        db.query(Listen.played_at, Track.valence, Track.name, Track.artists)
+        db.query(Listen.played_at, Track.valence, Track.name, Track.artists, Track.tags)
         .join(Track, Listen.track_id == Track.track_id)
         .filter(
             Listen.user_id == current_user.user_id,
@@ -169,26 +199,27 @@ async def get_emotion_regulation(
     MAX_SESSION = 25
     sessions: list[list] = []
     current: list = []
-    for played_at, valence, name, artists in rows:
+    for played_at, valence, name, artists, tags in rows:
         if not current:
-            current.append((played_at, valence, name, artists))
+            current.append((played_at, valence, name, artists, tags))
         else:
             gap_min = (played_at - current[-1][0]).total_seconds() / 60
             if gap_min > 60 or len(current) >= MAX_SESSION:
                 if len(current) >= 3:
                     sessions.append(current)
-                current = [(played_at, valence, name, artists)]
+                current = [(played_at, valence, name, artists, tags)]
             else:
-                current.append((played_at, valence, name, artists))
+                current.append((played_at, valence, name, artists, tags))
     if len(current) >= 3:
         sessions.append(current)
 
     classified = []
     for s in sessions:
-        vals      = [v for _, v, _, _ in s]
-        meta      = _classify_session(vals)
-        artist_0  = s[0][3]
-        artist_0  = artist_0[0] if isinstance(artist_0, list) and artist_0 else str(artist_0)
+        vals          = [v for _, v, _, _, _ in s]
+        tags_per_track = [t for _, _, _, _, t in s]
+        meta          = _classify_session(vals, tags_per_track)
+        artist_0      = s[0][3]
+        artist_0      = artist_0[0] if isinstance(artist_0, list) and artist_0 else str(artist_0)
         classified.append({
             "date":          s[0][0].strftime("%Y-%m-%d %H:%M"),
             "tracks":        len(s),
@@ -197,7 +228,7 @@ async def get_emotion_regulation(
             "mean_valence":  round(float(np.mean(vals)), 3),
             "start_valence": round(float(vals[0]), 3),
             "end_valence":   round(float(vals[-1]), 3),
-            "sample_tracks": [n for _, _, n, _ in s[:3]],
+            "sample_tracks": [n for _, _, n, _, _ in s[:3]],
         })
 
     # Distribution

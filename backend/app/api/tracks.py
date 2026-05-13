@@ -198,7 +198,11 @@ async def sync_listening_history(
                 )
             
             if not track:
-                # Create new track
+                # Fetch Last.fm tags for new track
+                from app.services.lastfm import get_lastfm_service
+                artist_name = track_data.get("artists", [""])[0] if track_data.get("artists") else ""
+                tags = get_lastfm_service().get_track_tags(track_data.get("name", ""), artist_name)
+
                 track = Track(
                     track_id=f"track_{spotify_id}",
                     spotify_id=spotify_id,
@@ -207,6 +211,7 @@ async def sync_listening_history(
                     album=track_data.get("album"),
                     duration_ms=track_data.get("duration_ms"),
                     popularity=track_data.get("popularity"),
+                    tags=tags or None,
                     **safe_features
                 )
                 db.add(track)

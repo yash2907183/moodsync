@@ -61,7 +61,8 @@ class Track(Base):
     key = Column(Integer, nullable=True)
     mode = Column(Integer, nullable=True)
     time_signature = Column(Integer, nullable=True)
-    
+    tags = Column(JSON, nullable=True)  # Last.fm genre/mood tags e.g. ["hip-hop", "rap"]
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships

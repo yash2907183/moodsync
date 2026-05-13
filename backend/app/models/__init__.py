@@ -39,6 +39,13 @@ def get_db() -> Generator[Session, None, None]:
 def init_db() -> None:
     """Initialize database by creating all tables."""
     Base.metadata.create_all(bind=engine)
+    # Add tags column to tracks table if it doesn't exist yet (one-time migration)
+    with engine.connect() as conn:
+        from sqlalchemy import text
+        conn.execute(text("""
+            ALTER TABLE tracks ADD COLUMN IF NOT EXISTS tags JSON
+        """))
+        conn.commit()
 
 
 def drop_db() -> None:
