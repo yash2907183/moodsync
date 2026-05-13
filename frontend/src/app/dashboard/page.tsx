@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { getMe, getTimeline, getEmotions } from "@/lib/api"
 import type { TimelinePoint, EmotionsResponse, UserInfo } from "@/types"
 import { getMoodTheme } from "@/lib/mood-theme"
@@ -28,6 +29,7 @@ const MOOD_GRADIENTS: Record<string, string> = {
 }
 
 export default function OverviewPage() {
+  const router = useRouter()
   const [user, setUser]         = useState<UserInfo | null>(null)
   const [timeline, setTimeline] = useState<TimelinePoint[]>([])
   const [emotions, setEmotions] = useState<EmotionsResponse | null>(null)
@@ -207,13 +209,19 @@ export default function OverviewPage() {
         {/* Weekly Trajectory Chart */}
         <div className="col-span-12 lg:col-span-8">
           <div className="bg-surface-container border border-outline-variant rounded-xl p-6 h-full">
-            <div className="flex justify-between items-center mb-12">
-              <h4 className="font-hanken text-[20px] font-semibold text-on-surface">Weekly Emotional Trajectory</h4>
-              <div className="flex gap-2">
-                <span className="px-4 py-1 rounded-full bg-primary/10 border border-primary/20 font-geist text-[12px] tracking-wider uppercase text-primary">
-                  Valence
-                </span>
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h4 className="font-hanken text-[20px] font-semibold text-on-surface">Weekly Emotional Trajectory</h4>
+                <p className="text-[13px] text-on-surface-variant mt-1">
+                  Bar height = lyrical valence — taller bars mean more emotionally charged lyrics that day.
+                  {avgValence !== null && (
+                    <> Your 7-day average is <span className={avgValence > 0.05 ? "text-primary" : avgValence < -0.05 ? "text-error" : "text-on-surface-variant"}>{lyricalMoodLabel(avgValence).toLowerCase()}</span>.</>
+                  )}
+                </p>
               </div>
+              <span className="px-4 py-1 rounded-full bg-primary/10 border border-primary/20 font-geist text-[12px] tracking-wider uppercase text-primary shrink-0 ml-4">
+                Valence
+              </span>
             </div>
             <div className="relative h-[200px] w-full flex items-end justify-between gap-2">
               {/* Grid lines */}
@@ -284,7 +292,7 @@ export default function OverviewPage() {
                     &ldquo;{dominantMood === "anger" ? "I never fold, I'm building a legacy..." : dominantMood === "sadness" ? "Lost in the rain again..." : dominantMood === "joy" ? "Everything is golden today..." : "Reaching for something more..."}&rdquo;
                   </p>
                   <p className="font-geist text-[10px] text-on-surface-variant/60 mt-1 uppercase tracking-wider">
-                    Detected: {capitalize(dominantMood)} · AI analysis
+                    Dominant theme: {capitalize(dominantMood)}
                   </p>
                 </div>
               </div>
@@ -305,7 +313,7 @@ export default function OverviewPage() {
               </div>
             </div>
             <button
-              onClick={() => {}}
+              onClick={() => router.push("/dashboard/insights")}
               className="w-full mt-6 py-2 border border-outline-variant rounded-lg font-geist text-[12px] tracking-wider uppercase text-on-surface-variant hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
             >
               View Insights

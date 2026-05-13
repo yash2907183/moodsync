@@ -84,7 +84,9 @@ export default function TracksPage() {
             </p>
           </div>
           <div className="flex flex-col gap-5 flex-1 justify-center">
-            {Object.entries(EMOTION_COLORS).map(([emotion, color]) => {
+            {Object.entries(EMOTION_COLORS)
+              .sort(([a], [b]) => (distribution[b] ?? 0) - (distribution[a] ?? 0))
+              .map(([emotion, color]) => {
               const raw = distribution[emotion] ?? 0
               const pct = maxEmotion > 0 ? Math.round((raw / maxEmotion) * 100) : 0
               return (

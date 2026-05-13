@@ -225,6 +225,32 @@ export default function InsightsPage() {
               </div>
             )}
           </div>
+
+          {/* Timeline summary stats */}
+          {timelineData.length >= 2 && (() => {
+            const avg  = timelineData.reduce((s, d) => s + d.valence, 0) / timelineData.length
+            const peak = timelineData.reduce((a, b) => a.valence > b.valence ? a : b)
+            const trough = timelineData.reduce((a, b) => a.valence < b.valence ? a : b)
+            const fmt = (d: TimelinePoint) => {
+              const date = new Date(d.date)
+              return `${date.toLocaleString("default", { month: "short" })} ${date.getDate()}`
+            }
+            return (
+              <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-outline-variant/30">
+                {[
+                  { label: "Average mood",   value: moodLabel(avg).text,    color: moodLabel(avg).color,    sub: `across ${timelineData.length} days` },
+                  { label: "Highest point",  value: moodLabel(peak.valence).text,   color: moodLabel(peak.valence).color,   sub: fmt(peak) },
+                  { label: "Lowest point",   value: moodLabel(trough.valence).text, color: moodLabel(trough.valence).color, sub: fmt(trough) },
+                ].map(({ label, value, color, sub }) => (
+                  <div key={label}>
+                    <p className="font-geist text-[10px] tracking-widest uppercase text-on-surface-variant">{label}</p>
+                    <p className="font-hanken text-[16px] font-semibold mt-0.5" style={{ color }}>{value}</p>
+                    <p className="font-geist text-[10px] text-on-surface-variant/50 mt-0.5">{sub}</p>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
 
         {/* Mood Forecast */}

@@ -16,6 +16,16 @@ interface ChartPoint {
 
 const fmtDate = (d: string) => { const [, m, day] = d.split("-"); return `${parseInt(m)}/${parseInt(day)}` }
 
+function moodLabelFromValence(v: number): string {
+  if (v > 0.4)  return "Very uplifting"
+  if (v > 0.2)  return "Uplifting"
+  if (v > 0.05) return "Slightly uplifting"
+  if (v > -0.05) return "Neutral"
+  if (v > -0.2) return "Slightly heavy"
+  if (v > -0.4) return "Heavy"
+  return "Very heavy"
+}
+
 function relativeLabel(forecastAvg: number, histMean: number) {
   const diff = forecastAvg - histMean
   const pct  = histMean !== 0 ? Math.abs(diff / histMean) : 0
@@ -145,8 +155,9 @@ export default function MoodForecast() {
               contentStyle={{ background: "#1e1e2b", border: "1px solid #4a4455", borderRadius: 12, fontSize: 12 }}
               formatter={(val: unknown, name: unknown) => {
                 if (name === "upper" || name === "lower") return [null, null]
-                const v = typeof val === "number" ? val.toFixed(3) : String(val)
-                return [v, name === "valence" ? "History" : "Forecast"]
+                const v = typeof val === "number" ? val : null
+                const label = v === null ? String(val) : moodLabelFromValence(v)
+                return [label, name === "valence" ? "History" : "Forecast"]
               }}
               labelFormatter={(d: unknown) => fmtDate(String(d))}
             />
