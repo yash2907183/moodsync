@@ -42,10 +42,10 @@ const FLOATING_EMOJIS = [
 ]
 
 const FEATURES = [
-  { icon: "🧠", title: "AI Mood Analysis",  desc: "Claude reads your listening patterns and writes a personal mood narrative" },
-  { icon: "📈", title: "Emotion Timeline",  desc: "See how your mood shifts over days, weeks, and months" },
-  { icon: "🎯", title: "Mood Forecast",     desc: "Predict your emotional trajectory for the next 7 days" },
-  { icon: "🃏", title: "Shareable Cards",   desc: "Generate a beautiful mood card to share with friends" },
+  { icon: "📈", title: "Emotion Timeline",     desc: "Daily lyrical mood plotted from your listening history — see trends over days and weeks" },
+  { icon: "🎯", title: "Mood Forecast",        desc: "7-day prediction of your emotional trajectory with a confidence band" },
+  { icon: "📓", title: "Mood Journal",         desc: "Log how you feel each day and see how closely your music mirrors your actual mood" },
+  { icon: "🔬", title: "Research Analytics",  desc: "Sentiment calibration, emotion regulation strategy, and genre mood breakdown" },
 ]
 
 export default function LandingPage() {
@@ -107,7 +107,7 @@ export default function LandingPage() {
         </h1>
 
         <p className="text-slate-500 dark:text-white/50 text-lg sm:text-xl mb-10 max-w-lg leading-relaxed animate-fade-up-2">
-          Connect Spotify and discover what your listening history says about your emotional state — powered by RoBERTa and GoEmotions AI.
+          Connect Spotify and discover what your listening history says about your emotional state — powered by j-hartmann RoBERTa and Last.fm enrichment.
         </p>
 
         {/* CTA */}
@@ -150,7 +150,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="relative z-10 text-center pb-6 text-slate-300 dark:text-white/20 text-xs">
-        moodsync · built with RoBERTa, GoEmotions & Claude
+        moodsync · built with j-hartmann RoBERTa, XLM-RoBERTa & Last.fm
       </footer>
     </div>
   )
