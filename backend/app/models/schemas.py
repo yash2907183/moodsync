@@ -19,10 +19,11 @@ class UserCreate(UserBase):
 class UserResponse(UserBase):
     user_id: str
     spotify_id: Optional[str]
+    display_name: Optional[str] = None
     created_at: datetime
     is_active: bool
     last_sync: Optional[datetime]
-    
+
     class Config:
         from_attributes = True
 

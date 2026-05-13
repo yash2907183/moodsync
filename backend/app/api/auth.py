@@ -152,6 +152,7 @@ async def callback(code: str, db: Session = Depends(get_db)):
             user = User(
                 user_id=f"user_{profile['spotify_id']}",
                 spotify_id=profile["spotify_id"],
+                display_name=profile.get("display_name"),
                 email=profile.get("email"),
                 consent_version="1.0",
                 is_active=True,
@@ -163,6 +164,8 @@ async def callback(code: str, db: Session = Depends(get_db)):
             logger.info(f"Created new user: {user.user_id}")
         else:
             user.last_sync = datetime.utcnow()
+            if profile.get("display_name"):
+                user.display_name = profile["display_name"]
             if refresh_token:
                 user.spotify_refresh_token = refresh_token
             db.commit()

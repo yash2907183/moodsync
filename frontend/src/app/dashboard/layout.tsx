@@ -202,7 +202,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span className="font-geist text-[12px] tracking-[0.05em] font-semibold uppercase">Logout</span>
             </button>
             {user && (
-              <p className="text-[10px] text-on-surface-variant/50 px-3 truncate">{user.spotify_id}</p>
+              <p className="text-[10px] text-on-surface-variant/50 px-3 truncate">
+                {user.display_name ?? user.spotify_id}
+              </p>
             )}
           </div>
         </div>

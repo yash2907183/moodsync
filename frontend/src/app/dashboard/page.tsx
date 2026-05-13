@@ -97,7 +97,7 @@ export default function OverviewPage() {
               </span>
               <div>
                 <h3 className="font-hanken text-white text-2xl font-semibold mb-1">
-                  {greeting()}, {user?.spotify_id ?? "there"} 👋
+                  {greeting()}, {user?.display_name ?? user?.spotify_id ?? "there"} 👋
                 </h3>
                 <p className="text-white/70 text-base">You&apos;ve been feeling</p>
                 <div className="flex items-center gap-3 mt-2">

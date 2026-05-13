@@ -31,6 +31,7 @@ export interface ListenRecord {
 export interface UserInfo {
   user_id: string
   spotify_id: string | null
+  display_name: string | null
   email: string | null
   created_at: string
   is_active: boolean
