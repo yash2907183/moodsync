@@ -7,8 +7,8 @@
 - PostgreSQL (local) or Neon (hosted, recommended)
 - Spotify Developer account
 - Genius API account
-- Anthropic API key
-- Stability AI API key (for AI music generation)
+- Last.fm API account
+- (Optional) Anthropic API key — used by legacy mood summary / forecast narrative endpoints
 
 ---
 
@@ -28,26 +28,19 @@
 1. Go to [genius.com/api-clients](https://genius.com/api-clients) and create a client.
 2. Copy the **Client Access Token** (read-only is fine).
 
-> Note: Genius is unreliable from cloud server IPs. The app automatically falls back to lyrics.ovh when Genius fails.
+> Note: Genius is unreliable from cloud server IPs. The app automatically falls back to lyrics.ovh → ChartLyrics when Genius fails.
 
 ---
 
-## 3. Anthropic API
+## 3. Last.fm API
 
-1. Get a key from [console.anthropic.com](https://console.anthropic.com).
-2. Used for: mood summary, forecast narrative, playlist music prompt generation.
-
----
-
-## 4. Stability AI API
-
-1. Sign up at [platform.stability.ai](https://platform.stability.ai).
-2. Go to **Account → API Keys** → create a key.
-3. Used for: generating audio from playlist mood analysis.
+1. Go to [last.fm/api/account/create](https://www.last.fm/api/account/create) and create an API account.
+2. Copy your **API Key**.
+3. Used for: per-track and per-artist genre/mood tag enrichment, which improves emotion regulation classification and genre mood breakdown.
 
 ---
 
-## 5. Database
+## 4. Database
 
 ### Local PostgreSQL
 
@@ -62,9 +55,14 @@ createdb moodsync
 2. Copy the connection string from the dashboard.
 3. Run `python scripts/init_db.py` with `DATABASE_URL` set to create all tables.
 
+> **Note:** The `tracks` table has a `tags` JSON column added for Last.fm tag storage. If you have an existing database, run:
+> ```sql
+> ALTER TABLE tracks ADD COLUMN IF NOT EXISTS tags JSONB DEFAULT '[]';
+> ```
+
 ---
 
-## 6. Backend
+## 5. Backend
 
 ```bash
 cd backend
@@ -83,8 +81,7 @@ SPOTIFY_CLIENT_SECRET=your_client_secret
 SPOTIFY_REDIRECT_URI=http://localhost:8000/api/auth/callback
 
 GENIUS_ACCESS_TOKEN=your_genius_token
-ANTHROPIC_API_KEY=your_anthropic_key
-STABILITY_API_KEY=your_stability_key
+LASTFM_API_KEY=your_lastfm_key
 
 DATABASE_URL=postgresql://user:pass@localhost:5432/moodsync
 
@@ -109,7 +106,7 @@ API available at `http://localhost:8000`. Swagger docs: `http://localhost:8000/d
 
 ---
 
-## 7. Frontend
+## 6. Frontend
 
 ```bash
 cd frontend
@@ -119,34 +116,42 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000). No `.env.local` needed for local dev — the Next.js rewrite proxies `/api/` to `localhost:8000` by default.
 
+The frontend loads **Hanken Grotesk**, **Geist**, and **Material Symbols Outlined** from Google Fonts automatically via `globals.css`. No additional font setup is needed.
+
 ---
 
-## 8. First run
+## 7. First run
 
 1. Click **Connect with Spotify** on the landing page.
 2. Authorize the app.
-3. Click **Sync** on the dashboard — this fetches your 50 most recent tracks and starts background analysis.
+3. Click **Sync Spotify** in the sidebar — this fetches your 50 most recent tracks and starts background analysis.
 4. A banner shows how many tracks are being analysed. It disappears automatically when done (typically 2–10 minutes depending on how many tracks need lyrics).
 5. The first sync loads HuggingFace models which takes ~15 seconds on first startup.
 
 ---
 
-## 9. Backfilling (optional)
+## 8. Backfilling (optional)
 
-To re-analyse all stored tracks (e.g. after a model change, or to pre-warm the playlist analyser cache):
+### Re-analyse stored tracks
+
+To re-score all stored tracks (e.g. after a model change):
 
 ```bash
-cd backend
-source venv/bin/activate
-cd ..
+cd backend && source venv/bin/activate && cd ..
 DATABASE_URL="postgresql://..." python scripts/backfill_moods.py
 ```
 
-Pass your Neon connection string if running against the production database.
+### Backfill Last.fm tags
+
+To add Last.fm tags to all existing tracks (one-time operation):
+
+```bash
+LASTFM_API_KEY="your_key" DATABASE_URL="postgresql://..." python scripts/backfill_tags.py
+```
 
 ---
 
-## 10. Deployment
+## 9. Deployment
 
 ### Database → Neon
 
@@ -161,7 +166,8 @@ Pass your Neon connection string if running against the production database.
 3. Add all variables from `backend/.env`, plus:
    - `ALLOWED_ORIGINS=https://your-vercel-url.vercel.app`
    - `FRONTEND_URL=https://your-vercel-url.vercel.app`
-4. In Railway service Settings → Networking, make sure the public URL's **Target Port** matches the port uvicorn runs on (typically 8080).
+   - `LASTFM_API_KEY=your_lastfm_key`
+4. In Railway service Settings → Networking, make sure the public URL's **Target Port** is set to `8080`.
 
 ### Frontend → Vercel
 
@@ -175,3 +181,4 @@ Pass your Neon connection string if running against the production database.
 - Add production callback URL to Spotify dashboard: `https://your-railway-url.up.railway.app/api/auth/callback`
 - Update `SPOTIFY_REDIRECT_URI` in Railway variables to the same URL
 - Verify `/health` endpoint returns 200 on your Railway URL
+- Run the Last.fm tag backfill script against the production database if you have existing tracks
