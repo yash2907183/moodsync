@@ -1,6 +1,5 @@
 "use client"
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
 import { getMe, getTimeline, getEmotions } from "@/lib/api"
 import type { TimelinePoint, EmotionsResponse, UserInfo } from "@/types"
 import { getMoodTheme } from "@/lib/mood-theme"
@@ -29,7 +28,6 @@ const MOOD_GRADIENTS: Record<string, string> = {
 }
 
 export default function OverviewPage() {
-  const router = useRouter()
   const [user, setUser]         = useState<UserInfo | null>(null)
   const [timeline, setTimeline] = useState<TimelinePoint[]>([])
   const [emotions, setEmotions] = useState<EmotionsResponse | null>(null)
@@ -207,7 +205,7 @@ export default function OverviewPage() {
         </div>
 
         {/* Weekly Trajectory Chart */}
-        <div className="col-span-12 lg:col-span-8">
+        <div className="col-span-12">
           <div className="bg-surface-container border border-outline-variant rounded-xl p-6 h-full">
             <div className="flex justify-between items-start mb-6">
               <div>
@@ -278,49 +276,6 @@ export default function OverviewPage() {
           </div>
         </div>
 
-        {/* Lyrical Patterns Sidebar */}
-        <div className="col-span-12 lg:col-span-4">
-          <div className="bg-surface-container border border-outline-variant rounded-xl p-6 h-full flex flex-col">
-            <h4 className="font-hanken text-[20px] font-semibold text-on-surface mb-6">Lyrical Patterns</h4>
-            <div className="space-y-6 flex-1">
-              <div className="flex items-start gap-4">
-                <div className="p-2 bg-error/10 text-error rounded-lg shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">format_quote</span>
-                </div>
-                <div>
-                  <p className="text-[14px] text-on-surface italic">
-                    &ldquo;{dominantMood === "anger" ? "I never fold, I'm building a legacy..." : dominantMood === "sadness" ? "Lost in the rain again..." : dominantMood === "joy" ? "Everything is golden today..." : "Reaching for something more..."}&rdquo;
-                  </p>
-                  <p className="font-geist text-[10px] text-on-surface-variant/60 mt-1 uppercase tracking-wider">
-                    Dominant theme: {capitalize(dominantMood)}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <div className="p-2 bg-primary/10 text-primary rounded-lg shrink-0">
-                  <span className="material-symbols-outlined text-[20px]">bolt</span>
-                </div>
-                <div>
-                  <p className="text-[14px] text-on-surface">
-                    Dominant Motif: <strong>{emotions?.top_genre ? capitalize(emotions.top_genre) : "Searching"}</strong>
-                  </p>
-                  <p className="text-[14px] text-on-surface-variant mt-1">
-                    {emotions?.analyzed_tracks
-                      ? `${emotions.analyzed_tracks} tracks analysed across your listening history.`
-                      : "Sync your tracks to reveal lyrical patterns."}
-                  </p>
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => router.push("/dashboard/insights")}
-              className="w-full mt-6 py-2 border border-outline-variant rounded-lg font-geist text-[12px] tracking-wider uppercase text-on-surface-variant hover:bg-surface-variant transition-colors flex items-center justify-center gap-2"
-            >
-              View Insights
-              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-            </button>
-          </div>
-        </div>
 
       </div>
     </div>
