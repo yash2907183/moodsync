@@ -1,9 +1,6 @@
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/lib/theme"
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "MoodSync",
@@ -12,18 +9,18 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
-        {/* Apply theme before first paint to avoid flash */}
         <script dangerouslySetInnerHTML={{ __html: `
           try {
             const t = localStorage.getItem('ms-theme') ||
               (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             if (t === 'dark') document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
           } catch(e) {}
         `}} />
       </head>
-      <body className={`${inter.className} bg-[#faf8f4] dark:bg-[#0a0a0f] text-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-200`}>
+      <body className="bg-background text-on-background min-h-screen">
         <ThemeProvider>
           {children}
         </ThemeProvider>
