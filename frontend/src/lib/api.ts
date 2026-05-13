@@ -101,6 +101,20 @@ export async function getRegulation(): Promise<{
   return request("/api/research/regulation")
 }
 
+export async function getGenreMood(): Promise<{
+  genres: {
+    genre: string
+    avg_valence: number
+    dominant_emotion: string
+    emotions: Record<string, number>
+    track_count: number
+    listen_count: number
+  }[]
+  total_genres: number
+}> {
+  return request("/api/research/genre-mood")
+}
+
 export async function getLanguageComparison(): Promise<{
   groups: { language: string; track_count: number; avg_valence: number; emotions: Record<string, number> }[]
   english: { language: string; track_count: number; avg_valence: number; emotions: Record<string, number> } | null

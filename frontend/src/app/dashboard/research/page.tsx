@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
-import { getCalibration, getRegulation, getLanguageComparison } from "@/lib/api"
+import { getCalibration, getRegulation, getLanguageComparison, getGenreMood } from "@/lib/api"
 
 type CalibData   = Awaited<ReturnType<typeof getCalibration>>
 type RegData     = Awaited<ReturnType<typeof getRegulation>>
@@ -253,6 +253,96 @@ function LanguagePanel() {
   )
 }
 
+/* ── 4. Genre Mood Breakdown ─────────────────────────── */
+type GenreData = Awaited<ReturnType<typeof getGenreMood>>["genres"][number]
+
+const EMOTION_COLORS2: Record<string, string> = {
+  joy: "#f59e0b", sadness: "#6366f1", anger: "#ef4444",
+  fear: "#64748b", optimism: "#10b981",
+}
+
+function valenceLabel(v: number) {
+  if (v < -0.4) return { text: "Heavy",    color: "#ef4444" }
+  if (v < -0.1) return { text: "Dark",     color: "#f87171" }
+  if (v <  0.1) return { text: "Neutral",  color: "#94a3b8" }
+  if (v <  0.4) return { text: "Uplifting",color: "#10b981" }
+  return              { text: "Bright",    color: "#34d399" }
+}
+
+function GenreMoodPanel() {
+  const [data, setData]       = useState<GenreData[] | null>(null)
+  const [error, setError]     = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getGenreMood()
+      .then(d => setData(d.genres))
+      .catch(e => setError(e.message?.includes("422") ? "Not enough tagged data yet. Sync more tracks." : "Could not load genre data."))
+      .finally(() => setLoading(false))
+  }, [])
+
+  return (
+    <SectionCard
+      title="Genre Mood Breakdown"
+      subtitle="How does your lyrical mood vary by genre? Based on Last.fm tags + NLP scores."
+    >
+      {loading && <div className="h-40 flex items-center justify-center"><div className="w-6 h-6 border-2 border-violet-300 border-t-violet-600 rounded-full animate-spin" /></div>}
+      {error && <p className="text-sm text-amber-500">{error}</p>}
+      {data && (
+        <div className="space-y-3">
+          {data.map((g: GenreData) => {
+            const vl = valenceLabel(g.avg_valence)
+            const domColor = EMOTION_COLORS2[g.dominant_emotion] ?? "#7c3aed"
+            return (
+              <div key={g.genre} className="border border-slate-100 dark:border-[#1e1e2a] rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 capitalize">{g.genre}</span>
+                    <span className="text-[10px] text-slate-400">{g.track_count} tracks · {g.listen_count} plays</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border capitalize"
+                      style={{ color: domColor, borderColor: `${domColor}40`, background: `${domColor}12` }}>
+                      {g.dominant_emotion}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border"
+                      style={{ color: vl.color, borderColor: `${vl.color}40`, background: `${vl.color}12` }}>
+                      {vl.text}
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {Object.entries(g.emotions)
+                    .filter(([k]) => EMOTION_COLORS2[k])
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([emotion, score]) => (
+                      <div key={emotion} className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 w-14 capitalize">{emotion}</span>
+                        <div className="flex-1 h-1.5 bg-slate-100 dark:bg-[#1e1e2a] rounded-full overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${Math.round(score * 100)}%`, background: EMOTION_COLORS2[emotion] }} />
+                        </div>
+                        <span className="text-[10px] tabular-nums text-slate-400 w-8 text-right">{(score * 100).toFixed(0)}%</span>
+                      </div>
+                    ))}
+                </div>
+                <div className="mt-2 flex items-center gap-1.5">
+                  <div className="flex-1 h-1.5 bg-slate-100 dark:bg-[#1e1e2a] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full" style={{
+                      width: `${Math.round(((g.avg_valence + 1) / 2) * 100)}%`,
+                      background: vl.color
+                    }} />
+                  </div>
+                  <span className="text-[10px] text-slate-400 w-24 text-right">valence {g.avg_valence > 0 ? "+" : ""}{g.avg_valence.toFixed(2)}</span>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </SectionCard>
+  )
+}
+
 /* ── Page ────────────────────────────────────────────── */
 export default function ResearchPage() {
   return (
@@ -265,6 +355,7 @@ export default function ResearchPage() {
       </div>
       <CalibrationPanel />
       <RegulationPanel />
+      <GenreMoodPanel />
       <LanguagePanel />
     </div>
   )

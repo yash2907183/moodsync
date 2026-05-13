@@ -17,6 +17,7 @@ export interface EmotionsResponse {
   analyzed_tracks: number
   dominant_mood: keyof EmotionDistribution
   distribution: EmotionDistribution
+  top_genre: string | null
 }
 
 export interface ListenRecord {

@@ -325,3 +325,77 @@ async def get_language_comparison(
                 "Non-English tracks use XLM-RoBERTa (polarity-based). "
                 "Comparing these reveals both lyrical content differences and model capability differences.",
     }
+
+
+# ── 4. Genre Mood Breakdown ────────────────────────────────────────────────
+
+@router.get("/genre-mood")
+async def get_genre_mood(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Compare lyrical mood and emotion profile across genres using Last.fm tags.
+    Groups the user's listening history by canonical genre and returns per-genre stats.
+    """
+    from app.services.lastfm import canonical_genre
+
+    rows = (
+        db.query(Track.tags, Track.valence, Score.joy, Score.sadness,
+                 Score.anger, Score.fear, Score.optimism,
+                 func.count(Listen.listen_id).label("plays"))
+        .join(Listen, Listen.track_id == Track.track_id)
+        .join(Score,  Score.track_id  == Track.track_id)
+        .filter(
+            Listen.user_id == current_user.user_id,
+            Track.tags.isnot(None),
+            Track.valence.isnot(None),
+        )
+        .group_by(Track.track_id, Track.tags, Track.valence,
+                  Score.joy, Score.sadness, Score.anger, Score.fear, Score.optimism)
+        .all()
+    )
+
+    if not rows:
+        raise HTTPException(status_code=422, detail="Not enough tagged data yet. Sync more tracks.")
+
+    # Aggregate by canonical genre
+    genre_data: dict = {}
+    for tags, valence, joy, sadness, anger, fear, optimism, plays in rows:
+        g = canonical_genre(tags or [])
+        if g not in genre_data:
+            genre_data[g] = {"valences": [], "joy": [], "sadness": [], "anger": [],
+                              "fear": [], "optimism": [], "plays": 0, "tracks": 0}
+        genre_data[g]["valences"].append(valence)
+        genre_data[g]["joy"].append(joy or 0)
+        genre_data[g]["sadness"].append(sadness or 0)
+        genre_data[g]["anger"].append(anger or 0)
+        genre_data[g]["fear"].append(fear or 0)
+        genre_data[g]["optimism"].append(optimism or 0)
+        genre_data[g]["plays"] += plays
+        genre_data[g]["tracks"] += 1
+
+    results = []
+    for genre, d in genre_data.items():
+        if d["tracks"] < 2:
+            continue
+        avg_v = float(np.mean(d["valences"]))
+        emotions = {
+            "joy":      round(float(np.mean(d["joy"])), 3),
+            "sadness":  round(float(np.mean(d["sadness"])), 3),
+            "anger":    round(float(np.mean(d["anger"])), 3),
+            "fear":     round(float(np.mean(d["fear"])), 3),
+            "optimism": round(float(np.mean(d["optimism"])), 3),
+        }
+        dominant_emotion = max(emotions, key=emotions.get)
+        results.append({
+            "genre":            genre,
+            "avg_valence":      round(avg_v, 3),
+            "dominant_emotion": dominant_emotion,
+            "emotions":         emotions,
+            "track_count":      d["tracks"],
+            "listen_count":     d["plays"],
+        })
+
+    results.sort(key=lambda x: x["listen_count"], reverse=True)
+    return {"genres": results, "total_genres": len(results)}

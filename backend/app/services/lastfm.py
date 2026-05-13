@@ -59,3 +59,65 @@ def get_lastfm_service() -> LastFmService:
     if _lastfm_service is None:
         _lastfm_service = LastFmService()
     return _lastfm_service
+
+
+# ── Tag-based energy helpers ───────────────────────────────────────────────
+
+_HIGH_ENERGY_TAGS = {
+    "hip-hop", "hip hop", "rap", "trap", "drill", "grime", "dancehall",
+    "dance", "electronic", "edm", "house", "techno", "drum and bass", "dnb",
+    "club", "party", "workout", "hype", "crunk", "bounce", "southern rap",
+    "dirty south", "memphis rap",
+}
+
+_LOW_ENERGY_TAGS = {
+    "acoustic", "ballad", "sad", "melancholy", "melancholic", "folk",
+    "singer-songwriter", "classical", "ambient", "sleep", "chill",
+    "lo-fi", "lo fi", "soft", "quiet", "meditation",
+}
+
+# Canonical genre groups for the genre breakdown feature
+GENRE_MAP: dict[str, set[str]] = {
+    "hip-hop/rap":    {"hip-hop", "hip hop", "rap", "trap", "drill", "grime", "crunk",
+                       "bounce", "southern rap", "dirty south", "memphis rap",
+                       "underground hip-hop", "alternative hip-hop"},
+    "r&b/soul":       {"rnb", "r&b", "soul", "neo soul", "new jack swing",
+                       "alternative rnb", "contemporary r&b"},
+    "pop":            {"pop", "dance pop", "electropop", "synth-pop", "teen pop",
+                       "indie pop", "art pop", "baroque pop"},
+    "rock/indie":     {"rock", "alternative", "indie", "punk", "metal", "emo",
+                       "post-rock", "pop rock", "indie rock"},
+    "electronic":     {"electronic", "dance", "edm", "house", "techno",
+                       "dubstep", "drum and bass", "dnb", "ambient"},
+    "country/folk":   {"country", "folk", "americana", "acoustic",
+                       "singer-songwriter", "bluegrass"},
+    "latin/afro":     {"latin", "reggaeton", "salsa", "afrobeats", "afropop",
+                       "dancehall", "reggae", "soca"},
+}
+
+
+def tag_energy_score(tags: List[str]) -> float | None:
+    """
+    Returns a tag-based energy estimate (0–1), or None if tags are inconclusive.
+    Used to blend with lyrical arousal for a more accurate energy score.
+    """
+    if not tags:
+        return None
+    high = sum(1 for t in tags if t in _HIGH_ENERGY_TAGS)
+    low  = sum(1 for t in tags if t in _LOW_ENERGY_TAGS)
+    if high > low:
+        return 0.78
+    if low > high:
+        return 0.22
+    return None
+
+
+def canonical_genre(tags: List[str]) -> str:
+    """Map a track's tag list to one of the canonical genre groups."""
+    if not tags:
+        return "other"
+    for tag in tags:
+        for genre, keywords in GENRE_MAP.items():
+            if tag.lower() in keywords:
+                return genre
+    return "other"

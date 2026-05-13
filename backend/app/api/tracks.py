@@ -323,8 +323,12 @@ def fetch_lyrics_for_tracks(db: Session, spotify_ids: List[str]):
 
             result = sentiment_analyzer.analyze_comprehensive(lyrics_text)
 
+            from app.services.lastfm import tag_energy_score
+            te = tag_energy_score(track.tags or [])
+            blended_energy = round(0.6 * result["arousal"] + 0.4 * te, 3) if te is not None else result["arousal"]
+
             track.valence = result["valence"]
-            track.energy = result["arousal"]
+            track.energy  = blended_energy
 
             existing_score = db.query(Score).filter(Score.track_id == track.track_id).first()
             if not existing_score:
@@ -333,7 +337,7 @@ def fetch_lyrics_for_tracks(db: Session, spotify_ids: List[str]):
                     model="hybrid_roberta",
                     polarity=result["polarity"],
                     valence_score=result["valence"],
-                    arousal_score=result["arousal"],
+                    arousal_score=blended_energy,
                     joy=result["emotions"].get("joy", 0),
                     sadness=result["emotions"].get("sadness", 0),
                     anger=result["emotions"].get("anger", 0),
@@ -487,11 +491,15 @@ async def submit_lyrics(
 
     # Run sentiment
     from app.services.sentiment import get_sentiment_analyzer
+    from app.services.lastfm import tag_energy_score
     analyzer = get_sentiment_analyzer()
     result   = analyzer.analyze_comprehensive(text)
 
+    te = tag_energy_score(track.tags or [])
+    blended_energy = round(0.6 * result["arousal"] + 0.4 * te, 3) if te is not None else result["arousal"]
+
     track.valence = result["valence"]
-    track.energy  = result["arousal"]
+    track.energy  = blended_energy
 
     existing_score = db.query(Score).filter(Score.track_id == track_id).first()
     if not existing_score:
@@ -500,7 +508,7 @@ async def submit_lyrics(
             model="hybrid_roberta",
             polarity=result["polarity"],
             valence_score=result["valence"],
-            arousal_score=result["arousal"],
+            arousal_score=blended_energy,
             joy=result["emotions"].get("joy", 0),
             sadness=result["emotions"].get("sadness", 0),
             anger=result["emotions"].get("anger", 0),
@@ -508,5 +516,5 @@ async def submit_lyrics(
             optimism=result["emotions"].get("optimism", 0),
         ))
     db.commit()
-    logger.info(f"Browser lyrics scored: {track.name} → valence={result['valence']:.3f}")
+    logger.info(f"Browser lyrics scored: {track.name} → valence={result['valence']:.3f} energy={blended_energy:.3f}")
     return {"status": "scored", "valence": result["valence"]}

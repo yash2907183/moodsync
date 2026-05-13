@@ -93,15 +93,18 @@ export default function OverviewPage() {
         <StatCard
           label="Lyrical Mood"
           value={avgValence !== null
-            ? avgValence < -0.5 ? "Very dark"
-            : avgValence < -0.2 ? "Dark & heavy"
-            : avgValence < -0.05 ? "Slightly heavy"
-            : avgValence < 0.05 ? "Mixed"
-            : avgValence < 0.2 ? "Slightly uplifting"
-            : avgValence < 0.5 ? "Uplifting"
-            : "Very uplifting"
+            ? (() => {
+                const isHype = emotions?.top_genre === "hip-hop/rap" || emotions?.top_genre === "electronic"
+                if (avgValence < -0.5) return isHype ? "Intense"       : "Very dark"
+                if (avgValence < -0.2) return isHype ? "Hard-hitting"  : "Dark & heavy"
+                if (avgValence < -0.05) return isHype ? "Energetic"    : "Slightly heavy"
+                if (avgValence < 0.05) return "Mixed"
+                if (avgValence < 0.2)  return "Slightly uplifting"
+                if (avgValence < 0.5)  return "Uplifting"
+                return "Very uplifting"
+              })()
             : "—"}
-          sub="from song lyrics"
+          sub={emotions?.top_genre ? `${emotions.top_genre} · lyrics` : "from song lyrics"}
           accentColor={avgValence !== null && avgValence > 0.05 ? "#10b981" : avgValence !== null && avgValence < -0.05 ? "#f87171" : "#94a3b8"}
         />
         <StatCard label="Days Tracked" value={timeline.length > 0 ? timeline.length : "—"} sub="keep syncing to grow" accentColor="#f59e0b" />

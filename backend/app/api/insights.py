@@ -112,10 +112,29 @@ async def get_emotion_distribution(
 
     dominant_mood = max(distribution, key=distribution.get)
 
+    # Determine top genre from recent scored listens
+    from app.services.lastfm import canonical_genre
+    genre_counts: dict = {}
+    tag_rows = (
+        db.query(Track.tags)
+        .join(Listen, Listen.track_id == Track.track_id)
+        .join(Score, Score.track_id == Track.track_id)
+        .filter(Listen.user_id == current_user.user_id, Track.tags.isnot(None))
+        .limit(limit)
+        .all()
+    )
+    for (tags,) in tag_rows:
+        if tags:
+            g = canonical_genre(tags)
+            genre_counts[g] = genre_counts.get(g, 0) + 1
+    genre_counts.pop("other", None)
+    top_genre = max(genre_counts, key=genre_counts.get) if genre_counts else None
+
     return {
         "analyzed_tracks": all_time_count,
-        "dominant_mood": dominant_mood,
-        "distribution": distribution,
+        "dominant_mood":   dominant_mood,
+        "distribution":    distribution,
+        "top_genre":       top_genre,
     }
 
 
