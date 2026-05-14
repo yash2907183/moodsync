@@ -460,8 +460,6 @@ async def submit_lyrics(
     existing = db.query(Lyric).filter(Lyric.track_id == track_id).first()
     if not existing:
         if not lyrics_text:
-            # Browser also found nothing — stamp a dummy Lyric so this track
-            # stops re-appearing in tracks_needing_lyrics on every sync.
             db.add(Lyric(
                 track_id=track_id,
                 source="none",
@@ -480,6 +478,11 @@ async def submit_lyrics(
             text=lyrics_text,
             is_instrumental=False,
         ))
+        db.commit()
+    elif existing and not existing.text and lyrics_text:
+        # Dummy record existed (source=none, empty text) — browser found real lyrics, update it
+        existing.text   = lyrics_text
+        existing.source = "browser_lyricsovh"
         db.commit()
 
     text = lyrics_text or (existing.text if existing else "")
@@ -502,7 +505,17 @@ async def submit_lyrics(
     track.energy  = blended_energy
 
     existing_score = db.query(Score).filter(Score.track_id == track_id).first()
-    if not existing_score:
+    if existing_score:
+        existing_score.model         = "hybrid_roberta"
+        existing_score.polarity      = result["polarity"]
+        existing_score.valence_score = result["valence"]
+        existing_score.arousal_score = blended_energy
+        existing_score.joy           = result["emotions"].get("joy", 0)
+        existing_score.sadness       = result["emotions"].get("sadness", 0)
+        existing_score.anger         = result["emotions"].get("anger", 0)
+        existing_score.fear          = result["emotions"].get("fear", 0)
+        existing_score.optimism      = result["emotions"].get("optimism", 0)
+    else:
         db.add(Score(
             track_id=track_id,
             model="hybrid_roberta",

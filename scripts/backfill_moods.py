@@ -1,6 +1,18 @@
 import sys
 import os
+import re
 import time
+
+
+def clean_title(title: str) -> str:
+    """Strip version suffixes so Genius can match the canonical track name."""
+    title = re.sub(r'\s*\(feat\..*?\)', '', title, flags=re.IGNORECASE)
+    title = re.sub(r'\s*feat\..*$', '', title, flags=re.IGNORECASE)
+    title = re.sub(r'\s*\(with .*?\)', '', title, flags=re.IGNORECASE)
+    title = re.sub(r'\s*-\s*(Remaster|Remix|Radio Edit|Live|Acoustic|Official|Single Version|Bonus|Studio Recording.*|Spike Mix|featured in.*).*$', '', title, flags=re.IGNORECASE)
+    title = re.sub(r'\s*\[.*?\]', '', title)
+    title = re.sub(r'\s*-\s*From\s*["\'].*?["\']', '', title, flags=re.IGNORECASE)
+    return title.strip()
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 backend_path = os.path.join(os.path.dirname(current_dir), 'backend')
@@ -71,9 +83,16 @@ def run_backfill():
             else:
                 # Either no Lyric record or a dummy (source='none', empty text) — retry
                 print("   ☁️   Fetching from Genius...")
+                cleaned = clean_title(track.name)
                 fetched, source, is_instrumental = lyrics_service.fetch_lyrics(
-                    track.name, artist
+                    cleaned, artist
                 )
+                # Fallback to original title if cleaned version found nothing
+                if not fetched and not is_instrumental and cleaned != track.name:
+                    print(f"   🔄  Retrying with original title...")
+                    fetched, source, is_instrumental = lyrics_service.fetch_lyrics(
+                        track.name, artist
+                    )
 
                 if is_instrumental:
                     print("   🎷  Instrumental — setting valence=0.5.")
