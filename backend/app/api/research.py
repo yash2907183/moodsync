@@ -33,22 +33,28 @@ async def get_personal_calibration(
     Computes Pearson correlation between daily lyrical valence and
     self-reported check-ins, then fits a personal calibration line.
     """
-    checkins = (
-        db.query(MoodCheckin)
+    # Average multiple check-ins per day
+    checkin_rows = (
+        db.query(
+            func.date(MoodCheckin.day).label("day"),
+            func.avg(MoodCheckin.mood_1to5).label("avg_mood"),
+            func.count(MoodCheckin.checkin_id).label("count"),
+        )
         .filter(MoodCheckin.user_id == current_user.user_id)
-        .order_by(MoodCheckin.day)
+        .group_by(func.date(MoodCheckin.day))
+        .order_by(func.date(MoodCheckin.day))
         .all()
     )
 
-    if len(checkins) < 3:
+    if len(checkin_rows) < 3:
         raise HTTPException(
             status_code=422,
-            detail="Need at least 3 mood check-ins to compute calibration."
+            detail="Need at least 3 mood check-in days to compute calibration."
         )
 
     points = []
-    for ci in checkins:
-        day = ci.day.date() if hasattr(ci.day, "date") else ci.day
+    for ci in checkin_rows:
+        day = ci.day
         daily_valence = (
             db.query(func.avg(Track.valence))
             .join(Listen, Listen.track_id == Track.track_id)
@@ -60,13 +66,14 @@ async def get_personal_calibration(
             .scalar()
         )
         if daily_valence is not None:
-            # Normalise check-in 1–5 → -1 to +1
-            user_mood_norm = (ci.mood_1to5 - 3) / 2.0
+            avg_mood = float(ci.avg_mood)
+            user_mood_norm = (avg_mood - 3) / 2.0
             points.append({
                 "date":              str(day),
                 "universal_valence": round(float(daily_valence), 3),
                 "user_mood":         round(user_mood_norm, 3),
-                "user_mood_raw":     ci.mood_1to5,
+                "user_mood_raw":     round(avg_mood, 2),
+                "checkin_count":     ci.count,
             })
 
     if len(points) < 3:

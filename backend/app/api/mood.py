@@ -1,6 +1,6 @@
 import logging
 from typing import List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -12,6 +12,18 @@ from app.api.auth import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+def ist_day_window():
+    """Return (today_start_utc, today_end_utc) aligned to IST midnight."""
+    now_ist   = datetime.now(IST)
+    start_ist = now_ist.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_ist   = start_ist + timedelta(days=1)
+    return (
+        start_ist.astimezone(timezone.utc).replace(tzinfo=None),
+        end_ist.astimezone(timezone.utc).replace(tzinfo=None),
+    )
 
 @router.get("/filter")
 async def get_tracks_by_mood(
@@ -65,26 +77,11 @@ async def submit_checkin(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Submit or update today's mood check-in (1 = very sad, 5 = very happy)."""
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = today_start + timedelta(days=1)
-
-    existing = (
-        db.query(MoodCheckin)
-        .filter(
-            MoodCheckin.user_id == current_user.user_id,
-            MoodCheckin.day >= today_start,
-            MoodCheckin.day < today_end,
-        )
-        .first()
-    )
-
-    if existing:
-        existing.mood_1to5 = payload.mood_1to5
-        existing.notes = payload.notes
-        db.commit()
-        db.refresh(existing)
-        return existing
+    """
+    Submit a mood check-in. Multiple check-ins per day are allowed —
+    the daily average is used in all correlation and calibration calculations.
+    """
+    today_start, _ = ist_day_window()
 
     checkin = MoodCheckin(
         user_id=current_user.user_id,
@@ -103,20 +100,30 @@ async def get_today_checkin(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Return today's check-in if it exists, else null."""
-    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = today_start + timedelta(days=1)
+    """Return today's check-ins — last value (for UI highlight) and daily average."""
+    today_start, today_end = ist_day_window()
 
-    checkin = (
+    checkins = (
         db.query(MoodCheckin)
         .filter(
             MoodCheckin.user_id == current_user.user_id,
             MoodCheckin.day >= today_start,
             MoodCheckin.day < today_end,
         )
-        .first()
+        .order_by(MoodCheckin.created_at.desc())
+        .all()
     )
-    return {"checkin": checkin.mood_1to5 if checkin else None, "notes": checkin.notes if checkin else None}
+    if not checkins:
+        return {"checkin": None, "avg_today": None, "count_today": 0, "notes": None}
+
+    last    = checkins[0]
+    avg     = round(sum(c.mood_1to5 for c in checkins) / len(checkins), 2)
+    return {
+        "checkin":     last.mood_1to5,
+        "avg_today":   avg,
+        "count_today": len(checkins),
+        "notes":       last.notes,
+    }
 
 
 @router.get("/correlation")
@@ -132,9 +139,10 @@ async def get_mood_correlation(
     cutoff = datetime.utcnow() - timedelta(days=days)
 
     # AI valence per day from listening history
+    ist_ts = func.timezone('Asia/Kolkata', Listen.played_at)
     ai_rows = (
         db.query(
-            func.date(Listen.played_at).label("date"),
+            func.date(ist_ts).label("date"),
             func.avg(Track.valence).label("avg_valence"),
         )
         .join(Track, Listen.track_id == Track.track_id)
@@ -143,34 +151,40 @@ async def get_mood_correlation(
             Listen.played_at >= cutoff,
             Track.valence.isnot(None),
         )
-        .group_by(func.date(Listen.played_at))
+        .group_by(func.date(ist_ts))
         .all()
     )
     ai_by_date = {str(r.date): round(r.avg_valence, 3) for r in ai_rows}
 
-    # Self-reported check-ins
-    checkins = (
-        db.query(MoodCheckin)
+    # Self-reported check-ins — averaged per day (multiple check-ins allowed)
+    checkin_rows = (
+        db.query(
+            func.date(MoodCheckin.day).label("date"),
+            func.avg(MoodCheckin.mood_1to5).label("avg_mood"),
+            func.count(MoodCheckin.checkin_id).label("count"),
+        )
         .filter(
             MoodCheckin.user_id == current_user.user_id,
             MoodCheckin.day >= cutoff,
         )
-        .order_by(MoodCheckin.day)
+        .group_by(func.date(MoodCheckin.day))
+        .order_by(func.date(MoodCheckin.day))
         .all()
     )
 
     # Build merged timeline — only dates where both values exist
     points = []
-    for c in checkins:
-        date_str = str(c.day.date())
+    for c in checkin_rows:
+        date_str = str(c.date)
         if date_str in ai_by_date:
-            # Normalise 1–5 to 0–1 to match valence scale
-            user_normalised = (c.mood_1to5 - 1) / 4
+            avg_mood = float(c.avg_mood)
+            user_normalised = (avg_mood - 1) / 4
             points.append({
-                "date": date_str,
-                "user_mood": c.mood_1to5,
+                "date":            date_str,
+                "user_mood":       round(avg_mood, 2),
+                "checkin_count":   c.count,
                 "user_normalised": round(user_normalised, 3),
-                "ai_valence": ai_by_date[date_str],
+                "ai_valence":      ai_by_date[date_str],
             })
 
     # Pearson correlation (requires ≥2 paired points)
@@ -188,6 +202,6 @@ async def get_mood_correlation(
     return {
         "points": points,
         "correlation": correlation,
-        "checkin_count": len(checkins),
+        "checkin_count": len(checkin_rows),
         "days": days,
     }

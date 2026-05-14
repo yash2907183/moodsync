@@ -24,6 +24,7 @@ function correlationLabel(r: number | null): string {
 
 export default function MoodCheckinCard() {
   const [todayMood, setTodayMood] = useState<number | null>(null)
+  const [countToday, setCountToday] = useState(0)
   const [hovered, setHovered]     = useState<number | null>(null)
   const [saving, setSaving]       = useState(false)
   const [saved, setSaved]         = useState(false)
@@ -32,7 +33,7 @@ export default function MoodCheckinCard() {
   const [loadingCorr, setLoadingCorr] = useState(true)
 
   useEffect(() => {
-    getTodayCheckin().then((r) => setTodayMood(r.checkin)).catch(() => {})
+    getTodayCheckin().then((r) => { setTodayMood(r.checkin); setCountToday(r.count_today ?? 0) }).catch(() => {})
     getMoodCorrelation(30)
       .then((r) => { setPoints(r.points); setCorrelation(r.correlation) })
       .catch(() => {})
@@ -44,6 +45,7 @@ export default function MoodCheckinCard() {
     try {
       await submitCheckin(score)
       setSaved(true)
+      setCountToday(c => c + 1)
       const r = await getMoodCorrelation(30)
       setPoints(r.points); setCorrelation(r.correlation)
     } catch { /* non-critical */ } finally { setSaving(false) }
@@ -94,16 +96,23 @@ export default function MoodCheckinCard() {
             ))}
           </div>
 
-          <div className="mt-4 h-5 flex items-center">
-            {saving && <span className="text-on-surface-variant text-sm">Saving…</span>}
-            {saved && !saving && (
-              <span className="flex items-center gap-2 font-geist text-[12px] tracking-wider text-primary">
-                <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                Saved ✓
+          <div className="mt-4 h-5 flex items-center justify-between">
+            <div className="flex items-center">
+              {saving && <span className="text-on-surface-variant text-sm">Saving…</span>}
+              {saved && !saving && (
+                <span className="flex items-center gap-2 font-geist text-[12px] tracking-wider text-primary">
+                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                  Saved ✓
+                </span>
+              )}
+              {display && !saving && !saved && (
+                <span className="text-on-surface-variant text-sm">{MOODS[display - 1].label}</span>
+              )}
+            </div>
+            {countToday > 1 && (
+              <span className="font-geist text-[10px] tracking-wider uppercase text-on-surface-variant/50">
+                {countToday} check-ins today · averaged
               </span>
-            )}
-            {display && !saving && !saved && (
-              <span className="text-on-surface-variant text-sm">{MOODS[display - 1].label}</span>
             )}
           </div>
         </div>

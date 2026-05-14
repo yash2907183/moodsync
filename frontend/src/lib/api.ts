@@ -142,7 +142,7 @@ export async function getTopTracks(limit = 10): Promise<{
   return request(`/api/tracks/top?limit=${limit}`)
 }
 
-export async function getTodayCheckin(): Promise<{ checkin: number | null; notes: string | null }> {
+export async function getTodayCheckin(): Promise<{ checkin: number | null; notes: string | null; avg_today: number | null; count_today: number }> {
   return request("/api/mood/checkin/today")
 }
 
