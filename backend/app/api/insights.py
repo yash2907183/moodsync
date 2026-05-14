@@ -26,9 +26,10 @@ async def get_mood_timeline(
     
     # Query: Join Listens -> Tracks. Group by Day.
     # We ignore tracks where valence is NULL.
+    ist_ts = func.timezone('Asia/Kolkata', Listen.played_at)
     daily_stats = (
         db.query(
-            func.date(Listen.played_at).label('date'),
+            func.date(ist_ts).label('date'),
             func.avg(Track.valence).label('avg_valence'),
             func.avg(Track.energy).label('avg_energy'),
             func.count(Listen.listen_id).label('track_count')
@@ -37,10 +38,10 @@ async def get_mood_timeline(
         .filter(
             Listen.user_id == current_user.user_id,
             Listen.played_at >= cutoff_date,
-            Track.valence.isnot(None) # Only include tracks we analyzed
+            Track.valence.isnot(None)
         )
-        .group_by(func.date(Listen.played_at))
-        .order_by(func.date(Listen.played_at))
+        .group_by(func.date(ist_ts))
+        .order_by(func.date(ist_ts))
         .all()
     )
     
@@ -156,9 +157,10 @@ async def predict_mood(
     import pandas as pd
     import numpy as np
 
+    ist_ts_fc = func.timezone('Asia/Kolkata', Listen.played_at)
     daily = (
         db.query(
-            func.date(Listen.played_at).label("date"),
+            func.date(ist_ts_fc).label("date"),
             func.avg(Track.valence).label("avg_valence"),
         )
         .join(Track, Listen.track_id == Track.track_id)
@@ -166,8 +168,8 @@ async def predict_mood(
             Listen.user_id == current_user.user_id,
             Track.valence.isnot(None),
         )
-        .group_by(func.date(Listen.played_at))
-        .order_by(func.date(Listen.played_at))
+        .group_by(func.date(ist_ts_fc))
+        .order_by(func.date(ist_ts_fc))
         .all()
     )
 

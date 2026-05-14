@@ -111,7 +111,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   async function handleSync() {
     const tok = getSpotifyToken()
-    if (!tok || isSpotifyTokenExpired()) { setSyncMsg("Spotify session expired — please log in again."); return }
+    if (!tok || isSpotifyTokenExpired()) { setSyncMsg("Session expired — log in again."); return }
     setSyncing(true); setSyncMsg(null)
     try {
       const res = await syncTracks(tok)
@@ -142,9 +142,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="flex min-h-screen bg-background text-on-background">
-      {/* Sidebar */}
-      <aside className="w-[220px] shrink-0 flex flex-col bg-surface-container-lowest border-r border-outline-variant fixed h-full z-50 py-6 px-4 gap-6 overflow-y-auto">
-        {/* Brand */}
+
+      {/* ── Desktop Sidebar (hidden on mobile) ── */}
+      <aside className="hidden md:flex w-[220px] shrink-0 flex-col bg-surface-container-lowest border-r border-outline-variant fixed h-full z-50 py-6 px-4 gap-6 overflow-y-auto">
         <button onClick={() => router.push("/")} className="flex items-center gap-3 px-2 hover:opacity-80 transition-opacity">
           <div className="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-primary text-[20px]">music_note</span>
@@ -155,7 +155,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </button>
 
-        {/* Nav */}
         <nav className="flex flex-col gap-1 flex-1">
           {NAV.map(({ href, label, icon }) => {
             const active = pathname === href
@@ -174,7 +173,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           })}
         </nav>
 
-        {/* Bottom */}
         <div className="flex flex-col gap-3">
           {pending > 0 && (
             <div className="px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-[11px] text-primary flex items-center gap-2">
@@ -182,9 +180,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               Analysing {pending} tracks…
             </div>
           )}
-          {syncMsg && (
-            <p className="text-[11px] text-on-surface-variant px-1">{syncMsg}</p>
-          )}
+          {syncMsg && <p className="text-[11px] text-on-surface-variant px-1">{syncMsg}</p>}
           <button onClick={handleSync} disabled={syncing}
             className="w-full bg-primary-container text-white py-2 px-4 rounded-full font-geist text-[12px] tracking-[0.05em] font-semibold uppercase hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
           >
@@ -210,12 +206,65 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main content */}
-      <div className="flex-1 ml-[220px]">
-        <main className="max-w-[1440px] mx-auto px-8 py-8">
+      {/* ── Mobile Top Bar (hidden on desktop) ── */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between px-4 py-3">
+        <button onClick={() => router.push("/")} className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-lg bg-primary-container flex items-center justify-center">
+            <span className="material-symbols-outlined text-primary text-[16px]">music_note</span>
+          </div>
+          <span className="font-hanken font-bold text-on-surface text-[15px]">MoodSync</span>
+        </button>
+        <div className="flex items-center gap-2">
+          {pending > 0 && (
+            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          )}
+          <button onClick={handleSync} disabled={syncing}
+            className="bg-primary-container text-white px-3 py-1.5 rounded-full font-geist text-[11px] tracking-wider uppercase hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center gap-1.5"
+          >
+            {syncing
+              ? <><div className="w-2.5 h-2.5 border border-white/30 border-t-white rounded-full animate-spin" /> Syncing</>
+              : <><span className="material-symbols-outlined text-[14px]">sync</span> Sync</>
+            }
+          </button>
+          <button
+            onClick={() => { clearTokens(); router.replace("/") }}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-variant transition-colors"
+          >
+            <span className="material-symbols-outlined text-[20px]">logout</span>
+          </button>
+        </div>
+      </header>
+
+      {/* ── Main Content ── */}
+      <div className="flex-1 md:ml-[220px] min-w-0">
+        <main className="max-w-[1440px] mx-auto px-4 py-4 pt-20 pb-24 md:px-8 md:py-8 md:pt-8 md:pb-8">
+          {syncMsg && (
+            <p className="md:hidden text-[11px] text-on-surface-variant mb-3 text-center">{syncMsg}</p>
+          )}
           {children}
         </main>
       </div>
+
+      {/* ── Mobile Bottom Nav (hidden on desktop) ── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-surface-container-lowest border-t border-outline-variant flex items-center justify-around px-1 py-2">
+        {NAV.map(({ href, label, icon }) => {
+          const active = pathname === href
+          return (
+            <button key={href} onClick={() => router.push(href)}
+              className={`flex flex-col items-center gap-0.5 px-3 py-1 rounded-lg transition-colors ${
+                active ? "text-primary" : "text-on-surface-variant"
+              }`}
+            >
+              <span className={`material-symbols-outlined text-[22px] ${active ? "text-primary" : ""}`}
+                style={{ fontVariationSettings: active ? "'FILL' 1" : "'FILL' 0" }}>
+                {icon}
+              </span>
+              <span className="font-geist text-[9px] tracking-wider uppercase">{label}</span>
+            </button>
+          )
+        })}
+      </nav>
+
     </div>
   )
 }

@@ -54,7 +54,7 @@ async def get_personal_calibration(
             .join(Listen, Listen.track_id == Track.track_id)
             .filter(
                 Listen.user_id == current_user.user_id,
-                func.date(Listen.played_at) == day,
+                func.date(func.timezone('Asia/Kolkata', Listen.played_at)) == day,
                 Track.valence.isnot(None),
             )
             .scalar()

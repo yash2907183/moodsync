@@ -35,9 +35,9 @@ export default function TracksPage() {
   return (
     <div>
       {/* Header */}
-      <header className="mb-12">
-        <h1 className="font-hanken text-[32px] font-semibold leading-tight tracking-[-0.01em] text-on-surface">Music Analytics</h1>
-        <p className="text-base text-on-surface-variant mt-1">Deep dive into your emotional listening patterns and track performance.</p>
+      <header className="mb-6 md:mb-12">
+        <h1 className="font-hanken text-[24px] md:text-[32px] font-semibold leading-tight tracking-[-0.01em] text-on-surface">Music Analytics</h1>
+        <p className="text-sm md:text-base text-on-surface-variant mt-1">Deep dive into your emotional listening patterns and track performance.</p>
       </header>
 
       {/* Top Grid: Most Played + Emotion Breakdown */}

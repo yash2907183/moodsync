@@ -77,48 +77,48 @@ export default function OverviewPage() {
       {/* Header */}
       <header className="flex justify-between items-center mb-12">
         <div>
-          <h2 className="font-hanken text-[32px] font-semibold leading-tight tracking-[-0.01em] text-on-surface">Overview</h2>
-          <p className="text-base text-on-surface-variant mt-1">Your emotional sonic landscape for the past week.</p>
+          <h2 className="font-hanken text-[24px] md:text-[32px] font-semibold leading-tight tracking-[-0.01em] text-on-surface">Overview</h2>
+          <p className="text-sm md:text-base text-on-surface-variant mt-1">Your emotional sonic landscape for the past week.</p>
         </div>
       </header>
 
       {/* Bento Grid */}
-      <div className="grid grid-cols-12 gap-6">
+      <div className="grid grid-cols-12 gap-3 md:gap-6">
 
         {/* Hero Card — full width */}
-        <section className={`col-span-12 relative overflow-hidden rounded-xl bg-gradient-to-br ${heroGradient} p-12 border border-white/[0.08] min-h-[320px] flex items-center`}>
-          <div className="relative z-10 w-full flex flex-col lg:flex-row justify-between items-center gap-12">
+        <section className={`col-span-12 relative overflow-hidden rounded-xl bg-gradient-to-br ${heroGradient} p-6 md:p-12 border border-white/[0.08] flex items-center`}>
+          <div className="relative z-10 w-full flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 md:gap-12">
             {/* Left */}
-            <div className="flex-1 space-y-4">
-              <span className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-1 rounded-full border border-white/20 text-white font-geist text-[12px] tracking-widest uppercase">
+            <div className="flex-1 space-y-3 md:space-y-4">
+              <span className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-3 py-1 rounded-full border border-white/20 text-white font-geist text-[11px] tracking-widest uppercase">
                 Current Vibe
               </span>
               <div>
-                <h3 className="font-hanken text-white text-2xl font-semibold mb-1">
+                <h3 className="font-hanken text-white text-lg md:text-2xl font-semibold mb-1">
                   {greeting()}, {user?.display_name ?? user?.spotify_id ?? "there"} 👋
                 </h3>
-                <p className="text-white/70 text-base">You&apos;ve been feeling</p>
+                <p className="text-white/70 text-sm md:text-base">You&apos;ve been feeling</p>
                 <div className="flex items-center gap-3 mt-2">
-                  <span className="font-hanken text-white font-bold" style={{ fontSize: "48px", lineHeight: "1.1" }}>
+                  <span className="font-hanken text-white font-bold text-[36px] md:text-[48px]" style={{ lineHeight: "1.1" }}>
                     {moodTheme.label}
                   </span>
-                  <span className="text-4xl">{moodTheme.emoji}</span>
+                  <span className="text-3xl md:text-4xl">{moodTheme.emoji}</span>
                 </div>
               </div>
-              <div className="flex gap-6 text-white/60">
+              <div className="flex flex-wrap gap-4 text-white/60">
                 <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[18px]">library_music</span>
-                  <span className="font-geist text-[12px] tracking-wider uppercase">{emotions?.analyzed_tracks ?? 0} tracks analysed</span>
+                  <span className="material-symbols-outlined text-[16px]">library_music</span>
+                  <span className="font-geist text-[11px] tracking-wider uppercase">{emotions?.analyzed_tracks ?? 0} tracks analysed</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-                  <span className="font-geist text-[12px] tracking-wider uppercase">{timeline.length} days of history</span>
+                  <span className="material-symbols-outlined text-[16px]">calendar_today</span>
+                  <span className="font-geist text-[11px] tracking-wider uppercase">{timeline.length} days of history</span>
                 </div>
               </div>
             </div>
 
             {/* Emotion Mix Glass Panel */}
-            <div className="w-full lg:w-[380px] glass-panel p-6 rounded-xl space-y-6">
+            <div className="w-full lg:w-[380px] glass-panel p-4 md:p-6 rounded-xl space-y-4 md:space-y-6">
               <div className="flex justify-between items-center">
                 <h4 className="font-geist text-[12px] tracking-widest uppercase text-white">Emotion Mix</h4>
                 <span className="material-symbols-outlined text-white/40 text-[18px]">tune</span>
@@ -153,7 +153,7 @@ export default function OverviewPage() {
         </section>
 
         {/* Stat Cards */}
-        <div className="col-span-12 md:col-span-3">
+        <div className="col-span-6 md:col-span-3">
           <div className="bg-surface-container-low border border-outline-variant p-6 rounded-xl h-full flex flex-col justify-between">
             <div>
               <p className="font-geist text-[12px] tracking-widest uppercase text-on-surface-variant mb-2">Top Emotion</p>
@@ -164,7 +164,7 @@ export default function OverviewPage() {
             <p className="text-[14px] text-on-surface-variant/60 mt-4">in your lyrics</p>
           </div>
         </div>
-        <div className="col-span-12 md:col-span-3">
+        <div className="col-span-6 md:col-span-3">
           <div className="bg-surface-container-low border border-outline-variant p-6 rounded-xl h-full flex flex-col justify-between">
             <div>
               <p className="font-geist text-[12px] tracking-widest uppercase text-on-surface-variant mb-2">Tracks Analysed</p>
@@ -173,7 +173,7 @@ export default function OverviewPage() {
             <p className="text-[14px] text-on-surface-variant/60 mt-4">with full lyrics</p>
           </div>
         </div>
-        <div className="col-span-12 md:col-span-3">
+        <div className="col-span-6 md:col-span-3">
           <div className="bg-surface-container-low border border-outline-variant p-6 rounded-xl h-full flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-start">
@@ -191,7 +191,7 @@ export default function OverviewPage() {
             </p>
           </div>
         </div>
-        <div className="col-span-12 md:col-span-3">
+        <div className="col-span-6 md:col-span-3">
           <div className="bg-surface-container-low border border-outline-variant p-6 rounded-xl h-full flex flex-col justify-between">
             <div>
               <p className="font-geist text-[12px] tracking-widest uppercase text-on-surface-variant mb-2">Days Tracked</p>

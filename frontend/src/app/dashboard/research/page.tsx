@@ -363,9 +363,9 @@ function LanguagePanel() {
 export default function ResearchPage() {
   return (
     <div>
-      <header className="mb-12">
-        <h1 className="font-hanken text-[32px] font-semibold leading-tight tracking-[-0.01em] text-on-surface">Research Lab</h1>
-        <p className="text-base text-on-surface-variant mt-1">
+      <header className="mb-6 md:mb-12">
+        <h1 className="font-hanken text-[24px] md:text-[32px] font-semibold leading-tight tracking-[-0.01em] text-on-surface">Research Lab</h1>
+        <p className="text-sm md:text-base text-on-surface-variant mt-1">
           Deep algorithmic analysis of your musical emotional footprint.
         </p>
       </header>

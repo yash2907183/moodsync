@@ -159,10 +159,10 @@ export default function InsightsPage() {
   return (
     <div>
       {/* Header */}
-      <header className="flex justify-between items-end mb-12">
+      <header className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 mb-6 md:mb-12">
         <div>
-          <h1 className="font-hanken text-[32px] font-semibold leading-tight tracking-[-0.01em] text-on-surface">Emotional Insights</h1>
-          <p className="text-base text-on-surface-variant mt-1">Deep dive into the lyrical sentiment of your library.</p>
+          <h1 className="font-hanken text-[24px] md:text-[32px] font-semibold leading-tight tracking-[-0.01em] text-on-surface">Emotional Insights</h1>
+          <p className="text-sm md:text-base text-on-surface-variant mt-1">Deep dive into the lyrical sentiment of your library.</p>
         </div>
         <div className="flex gap-2">
           <div className="bg-surface-container border border-outline-variant rounded-lg px-4 py-1.5 flex items-center gap-2">
