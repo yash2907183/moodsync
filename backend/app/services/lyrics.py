@@ -5,7 +5,6 @@ import os
 import logging
 import re
 from typing import Optional, Tuple
-from urllib.parse import quote as url_quote
 import lyricsgenius
 from lyricsgenius.types import Song
 import requests
@@ -88,25 +87,28 @@ class LyricsService:
         except Exception as e:
             logger.error(f"Error fetching lyrics for '{track_name}': {e}")
 
-        # Fallback: lyrics.ovh
-        return self._fetch_from_lyricsovh(track_name, artist_name)
+        # Fallback: lrclib.net
+        return self._fetch_from_lrclib(track_name, artist_name)
 
-    def _fetch_from_lyricsovh(self, track_name: str, artist_name: str) -> Tuple[Optional[str], str, bool]:
-        """Fallback lyrics source that works from cloud IPs."""
+    def _fetch_from_lrclib(self, track_name: str, artist_name: str) -> Tuple[Optional[str], str, bool]:
+        """Fetch lyrics from lrclib.net — open API, no key, works from cloud IPs."""
         try:
             clean_track = self._normalize_title(track_name)
             clean_artist = self._normalize_artist(artist_name)
-            url = f"https://lyrics.ovh/v1/{url_quote(clean_artist)}/{url_quote(clean_track)}"
-            resp = requests.get(url, timeout=10)
+            url = "https://lrclib.net/api/get"
+            resp = requests.get(url, params={"artist_name": clean_artist, "track_name": clean_track}, timeout=10)
             if resp.status_code == 200:
                 data = resp.json()
-                lyrics = data.get("lyrics", "")
+                if data.get("instrumental"):
+                    logger.info(f"lrclib: instrumental — {track_name}")
+                    return None, "lrclib", True
+                lyrics = data.get("plainLyrics") or ""
                 if lyrics and len(lyrics.strip()) >= 50:
                     cleaned = self._clean_lyrics(lyrics)
-                    logger.info(f"lyrics.ovh fallback succeeded for: {track_name}")
-                    return cleaned, "lyricsovh", False
+                    logger.info(f"lrclib succeeded for: {track_name}")
+                    return cleaned, "lrclib", False
         except Exception as e:
-            logger.warning(f"lyrics.ovh fallback failed for '{track_name}': {e}")
+            logger.warning(f"lrclib failed for '{track_name}': {e}")
         return None, "none", False
     
     def _normalize_title(self, title: str) -> str:
