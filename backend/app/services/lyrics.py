@@ -107,6 +107,9 @@ class LyricsService:
                     cleaned = self._clean_lyrics(lyrics)
                     logger.info(f"lrclib succeeded for: {track_name}")
                     return cleaned, "lrclib", False
+                logger.warning(f"lrclib: no lyrics in response for '{track_name}'")
+            else:
+                logger.warning(f"lrclib: HTTP {resp.status_code} for '{track_name}'")
         except Exception as e:
             logger.warning(f"lrclib failed for '{track_name}': {e}")
         return None, "none", False
