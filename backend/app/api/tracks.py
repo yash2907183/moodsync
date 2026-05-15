@@ -452,6 +452,8 @@ async def submit_lyrics(
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
 
+    logger.info(f"Lyrics submission: {track.name!r} — {'%d chars' % len(lyrics_text) if lyrics_text else 'EMPTY'}")
+
     # Skip only if genuinely scored — valence=0.0 is the "no lyrics found" placeholder,
     # not a real score, so allow a retry if the browser now has lyrics.
     if track.valence is not None and track.valence != 0.0:
