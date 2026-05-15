@@ -132,6 +132,7 @@ export default function LandingPage() {
           </button>
         </div>
         <p className="text-slate-400 dark:text-white/25 text-xs animate-fade-up-3">Free · Spotify account required</p>
+        <p className="text-slate-400 dark:text-white/30 text-sm mt-3 animate-fade-up-3">Created by <span className="text-violet-500 dark:text-violet-400 font-medium">Yash Chaturvedi</span></p>
 
         {error && <p className="mt-4 text-red-500 dark:text-red-400 text-sm animate-fade-up">{error}</p>}
 
