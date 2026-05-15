@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
-import { getTopTracks, getArtistMood, getEmotions } from "@/lib/api"
+import { getTopTracks, getEmotions } from "@/lib/api"
 import type { EmotionsResponse } from "@/types"
 
 const EMOTION_COLORS: Record<string, string> = {
@@ -11,20 +11,12 @@ const EMOTION_COLORS: Record<string, string> = {
   anger:    "#ef4444",
 }
 
-function valenceMoodLabel(v: number): { text: string; color: string; bg: string; border: string } {
-  if (v > 0.3)  return { text: "Uplifting", color: "#22c55e", bg: "rgba(34,197,94,0.1)",  border: "rgba(34,197,94,0.2)"  }
-  if (v > -0.1) return { text: "Neutral",   color: "#f59e0b", bg: "rgba(245,158,11,0.1)", border: "rgba(245,158,11,0.2)" }
-  return              { text: "Heavy",     color: "#ef4444", bg: "rgba(239,68,68,0.1)",  border: "rgba(239,68,68,0.2)"  }
-}
-
 export default function TracksPage() {
   const [topTracks, setTopTracks] = useState<{ track_id: string; name: string; artist: string[]; plays: number }[]>([])
-  const [artistMood, setArtistMood] = useState<{ artist: string; avg_valence: number; plays: number }[]>([])
   const [emotions, setEmotions]   = useState<EmotionsResponse | null>(null)
 
   useEffect(() => {
     getTopTracks(15).then(r => setTopTracks(r.tracks)).catch(() => {})
-    getArtistMood().then(setArtistMood).catch(() => {})
     getEmotions(50).then(r => { if (r) setEmotions(r) }).catch(() => {})
   }, [])
 
@@ -111,83 +103,6 @@ export default function TracksPage() {
         </div>
       </div>
 
-      {/* Artist Mood Map */}
-      <section className="bg-surface-container-low border border-outline-variant rounded-xl p-6 flex flex-col gap-6 mb-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="font-hanken text-[20px] font-semibold text-on-surface">Artist Mood Map</h2>
-            <p className="font-geist text-[12px] tracking-wider uppercase text-on-surface-variant mt-1">
-              Aggregated valence of artists with 3+ listens
-            </p>
-          </div>
-          <div className="bg-surface-container-high rounded-full px-4 py-1.5 border border-outline-variant flex items-center gap-2">
-            <span className="material-symbols-outlined text-[16px] text-primary">filter_list</span>
-            <span className="font-geist text-[12px] tracking-wider uppercase">Valence Sorted</span>
-          </div>
-        </div>
-
-        {artistMood.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3 opacity-40">
-            <span className="material-symbols-outlined text-[48px]">analytics</span>
-            <p className="text-[16px] text-center">Not enough listens per artist yet — keep syncing.</p>
-          </div>
-        ) : (
-          <div className="flex flex-col border-t border-outline-variant">
-            {[...artistMood].sort((a, b) => b.avg_valence - a.avg_valence).map(a => {
-              const mood = valenceMoodLabel(a.avg_valence)
-              const pct  = Math.round(((a.avg_valence + 1) / 2) * 100)
-              return (
-                <div key={a.artist} className="grid grid-cols-12 items-center py-4 border-b border-outline-variant hover:bg-surface-variant/30 transition-colors px-2">
-                  <div className="col-span-3 flex flex-col">
-                    <span className="font-bold text-[15px] text-on-surface truncate">{a.artist}</span>
-                    <span className="font-geist text-[11px] text-outline">{a.plays} listens</span>
-                  </div>
-                  <div className="col-span-6 flex items-center gap-4 px-6">
-                    <div className="flex-1 h-1.5 rounded-full relative" style={{
-                      background: "linear-gradient(to right, #ef4444, #f59e0b, #22c55e)"
-                    }}>
-                      <div
-                        className="absolute w-4 h-4 rounded-full border-2 border-white bg-on-surface top-1/2 -translate-y-1/2 shadow-lg"
-                        style={{ left: `calc(${pct}% - 8px)` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-span-2 text-center">
-                    <span
-                      className="px-3 py-1 rounded-full font-geist text-[11px] tracking-wider uppercase border"
-                      style={{ color: mood.color, backgroundColor: mood.bg, borderColor: mood.border }}
-                    >
-                      {mood.text}
-                    </span>
-                  </div>
-                  <div className="col-span-1 text-right">
-                    <span className="font-geist text-[12px] text-on-surface">{a.avg_valence.toFixed(2)}</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* Footer Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[
-          { icon: "trending_up",  label: "Avg BPM",       value: emotions?.analyzed_tracks ? "—" : "—",  color: "text-primary",   bg: "bg-primary/10"   },
-          { icon: "speed",        label: "Danceability",  value: "—",                                      color: "text-tertiary",  bg: "bg-tertiary/10"  },
-          { icon: "waves",        label: "Acousticness",  value: "—",                                      color: "text-error",     bg: "bg-error/10"     },
-        ].map(({ icon, label, value, color, bg }) => (
-          <div key={label} className="bg-surface-container border border-outline-variant rounded-xl p-4 flex items-center gap-4">
-            <div className={`w-12 h-12 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
-              <span className={`material-symbols-outlined ${color}`}>{icon}</span>
-            </div>
-            <div>
-              <p className="font-geist text-[12px] tracking-wider uppercase text-on-surface-variant">{label}</p>
-              <p className="font-hanken text-[20px] font-semibold text-on-surface">{value}</p>
-            </div>
-          </div>
-        ))}
-      </div>
     </div>
   )
 }
