@@ -7,6 +7,7 @@ from typing import List, Dict, Optional, Tuple, Any
 from datetime import datetime, timedelta
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth, SpotifyClientCredentials
+from spotipy.cache_handler import MemoryCacheHandler
 from spotipy.exceptions import SpotifyException
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ class SpotifyService:
             client_secret=self.client_secret,
             redirect_uri=self.redirect_uri,
             scope=self.scope,
-            cache_path=None,
+            cache_handler=MemoryCacheHandler(),
             show_dialog=True,
         )
     
