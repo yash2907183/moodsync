@@ -1,9 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
-import { getCalibration, getRegulation, getLanguageComparison, getGenreMood } from "@/lib/api"
-import { ResponsiveContainer, ScatterChart, Scatter, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts"
+import { getRegulation, getLanguageComparison, getGenreMood } from "@/lib/api"
 
-type CalibData   = Awaited<ReturnType<typeof getCalibration>>
 type RegData     = Awaited<ReturnType<typeof getRegulation>>
 type RegSession  = RegData["sessions"][number]
 type LangData    = Awaited<ReturnType<typeof getLanguageComparison>>
@@ -52,75 +50,17 @@ function ErrorMsg({ msg }: { msg: string }) {
 
 /* ── 1. Calibration ─────────────────────────────────────── */
 function CalibrationPanel() {
-  const [data, setData]       = useState<CalibData | null>(null)
-  const [error, setError]     = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    getCalibration()
-      .then(setData)
-      .catch(e => setError(e.message?.includes("422")
-        ? "Need at least 3 mood check-ins. Log your mood daily in the Journal tab."
-        : "Could not load calibration."))
-      .finally(() => setLoading(false))
-  }, [])
-
-  const axisColor = "#4a4455"
-  const corrColor = data ? (Math.abs(data.correlation) > 0.5 ? "#10b981" : Math.abs(data.correlation) > 0.3 ? "#ffb784" : "#ffb4ab") : "#d2bbff"
-
   return (
     <section className="col-span-12 lg:col-span-7 bg-surface-container-low border border-outline-variant rounded-xl p-6 flex flex-col gap-4">
       <SectionHeader
         title="Personalised Sentiment Calibration"
         subtitle="How well does the universal AI model predict YOUR mood? Scatter = one day of data."
       />
-      {loading && <Spinner />}
-      {error && <ErrorMsg msg={error} />}
-      {data && (
-        <div className="space-y-5">
-          <div className="flex flex-wrap gap-2">
-            {[
-              { label: "Pearson r",    value: data.correlation, color: corrColor },
-              { label: "p-value",      value: data.p_value,     color: data.p_value < 0.05 ? "#10b981" : "#ffb784" },
-              { label: "Strength",     value: data.strength,    color: corrColor },
-              { label: "Days matched", value: data.n_points,    color: "#d2bbff" },
-            ].map(({ label, value, color }) => (
-              <span key={label} className="px-3 py-1 bg-surface-container-highest rounded-full font-geist text-[11px]" style={{ color }}>
-                {label}: {value}
-              </span>
-            ))}
-          </div>
-
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-            <p className="font-geist text-[12px] tracking-wider uppercase text-primary mb-1">Calibration Logic</p>
-            <code className="font-geist text-[13px] text-on-surface-variant block mb-2">
-              personal_score = {data.slope > 0 ? "+" : ""}{data.slope} × model_score {data.intercept >= 0 ? "+" : ""}{data.intercept}
-            </code>
-            <p className="text-[14px] text-on-surface-variant">{data.interpretation}</p>
-          </div>
-
-          <div className="relative h-56 bg-surface-container rounded-lg border border-outline-variant overflow-hidden">
-            <ResponsiveContainer width="100%" height="100%">
-              <ScatterChart margin={{ top: 16, right: 16, left: -16, bottom: 0 }}>
-                <XAxis dataKey="universal_valence" type="number" domain={[-1,1]}
-                  tick={{ fontSize: 9, fill: axisColor }} axisLine={false} tickLine={false}
-                  label={{ value: "← Heavy  Model score  Uplifting →", position: "insideBottom", offset: -2, fontSize: 8, fill: axisColor }} />
-                <YAxis dataKey="user_mood" type="number" domain={[-1,1]}
-                  tick={{ fontSize: 9, fill: axisColor }} axisLine={false} tickLine={false} width={40}
-                  label={{ value: "Your mood", angle: -90, position: "insideLeft", fontSize: 8, fill: axisColor }} />
-                <Tooltip
-                  contentStyle={{ background: "#1e1e2b", border: "1px solid #4a4455", borderRadius: 8, fontSize: 11 }}
-                  formatter={(v: unknown, n: unknown) => [`${typeof v === "number" ? v.toFixed(2) : v}`, n === "universal_valence" ? "Model" : "Your mood"] as [string, string]}
-                  labelFormatter={() => ""}
-                />
-                <ReferenceLine x={0} stroke="#4a4455" />
-                <ReferenceLine y={0} stroke="#4a4455" />
-                <Scatter data={data.points} fill="#7c3aed" opacity={0.7} />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      )}
+      <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+        <span className="material-symbols-outlined text-primary text-[40px]">lock_clock</span>
+        <p className="font-hanken text-[18px] font-semibold text-on-surface">Results revealed after the study</p>
+        <p className="text-[14px] text-on-surface-variant max-w-sm">Your calibration data is being recorded. Results will be shown once the 7-day study period is complete.</p>
+      </div>
     </section>
   )
 }
