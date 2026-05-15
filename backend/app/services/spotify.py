@@ -45,7 +45,8 @@ class SpotifyService:
             client_secret=self.client_secret,
             redirect_uri=self.redirect_uri,
             scope=self.scope,
-            cache_path=None  # Don't cache, handle tokens in DB
+            cache_path=None,
+            show_dialog=True,
         )
     
     def get_client(self, access_token: str) -> spotipy.Spotify:
