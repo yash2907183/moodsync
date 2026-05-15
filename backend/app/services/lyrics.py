@@ -84,8 +84,8 @@ class LyricsService:
             logger.warning(f"No lyrics found for: {track_name} by {artist_name}")
             return None, "genius", False
             
-        except Exception as e:
-            logger.error(f"Error fetching lyrics for '{track_name}': {e}")
+        except Exception:
+            pass
 
         # Fallback: lrclib.net
         return self._fetch_from_lrclib(track_name, artist_name)

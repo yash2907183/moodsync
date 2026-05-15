@@ -192,11 +192,6 @@ async def sync_listening_history(
             features = audio_features.get(spotify_id, {})
             safe_features = {k: features.get(k) for k in ALLOWED_FEATURE_KEYS if features.get(k) is not None}
 
-            if not safe_features:
-                logger.warning(
-                    "No audio features for spotify_id=%s (token expired, restricted track, or region-locked?)",
-                    spotify_id
-                )
             
             if not track:
                 # Fetch Last.fm tags for new track

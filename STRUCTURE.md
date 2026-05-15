@@ -16,8 +16,8 @@ moodsync/
 │   │   │   ├── playlists.py         # playlist analysis jobs
 │   │   │   └── cron.py              # nightly auto-sync endpoint (called by cron-job.org)
 │   │   ├── services/
-│   │   │   ├── spotify.py           # Spotipy wrapper — recent tracks, playlist tracks, user profile
-│   │   │   ├── lyrics.py            # Genius fetch → lyrics.ovh → ChartLyrics fallback + text cleaning
+│   │   │   ├── spotify.py           # Spotipy wrapper — recent tracks, playlist tracks, user profile; show_dialog=True + MemoryCacheHandler to prevent session bleed
+│   │   │   ├── lyrics.py            # Genius (403 on Railway) → lrclib.net fallback; server-side fetch triggered as background task
 │   │   │   ├── sentiment.py         # NLP pipeline (j-hartmann + RoBERTa + VADER); tag-aware energy blending
 │   │   │   └── lastfm.py            # Last.fm API — track/artist tag fetching; used for genre mood breakdown
 │   │   ├── models/
@@ -36,7 +36,7 @@ moodsync/
 │       │   ├── page.tsx             # Landing page (animated hero, Connect with Spotify CTA)
 │       │   ├── dashboard/
 │       │   │   ├── layout.tsx       # Sidebar shell: Material Symbols nav icons, Sync Spotify button,
-│       │   │   │                    #   lyrics fetching logic (lyrics.ovh + ChartLyrics fallback)
+│       │   │   │                    #   lyrics now fetched server-side as background task (no browser fetch)
 │       │   │   ├── page.tsx         # Overview: bento grid, mood-gradient hero card, glass emotion-mix
 │       │   │   │                    #   panel, 4 stat cards, weekly trajectory bar chart, lyrical patterns
 │       │   │   ├── insights/
@@ -44,8 +44,7 @@ moodsync/
 │       │   │   │                    #   MoodForecast component, time-of-day centred-bar rows, day-of-week rows
 │       │   │   ├── tracks/
 │       │   │   │   └── page.tsx     # Music Analytics: most-played list (ranked, play-count bars),
-│       │   │   │                    #   emotion breakdown (sorted descending), artist mood map with
-│       │   │   │                    #   red→green gradient valence slider
+│       │   │   │                    #   emotion breakdown (sorted descending)
 │       │   │   ├── journal/
 │       │   │   │   └── page.tsx     # Journal: wraps MoodCheckin component
 │       │   │   ├── research/
@@ -134,7 +133,7 @@ POST /api/tracks/sync
     │  fetches Last.fm tags per track (falls back to artist tags)
     └─► background task (fetch_lyrics_for_tracks)
             │
-            ├─► Genius API  →  lyrics.ovh  →  ChartLyrics  →  valence=0.0 (no lyrics)
+            ├─► Genius API (403 on Railway)  →  lrclib.net  →  valence=0.0 (not found)
             │
             └─► sentiment.py
                     ├─ j-hartmann  (joy/sadness/anger/fear/disgust/surprise/optimism)

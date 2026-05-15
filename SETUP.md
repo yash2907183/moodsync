@@ -23,12 +23,12 @@
 
 ---
 
-## 2. Genius API
+## 2. Genius API (optional)
 
 1. Go to [genius.com/api-clients](https://genius.com/api-clients) and create a client.
 2. Copy the **Client Access Token** (read-only is fine).
 
-> Note: Genius is unreliable from cloud server IPs. The app automatically falls back to lyrics.ovh → ChartLyrics when Genius fails.
+> Note: Genius is 403-blocked on Railway cloud IPs. The app falls back to lrclib.net server-side for all lyrics. `GENIUS_ACCESS_TOKEN` can be left blank if deploying to Railway.
 
 ---
 
@@ -125,7 +125,7 @@ The frontend loads **Hanken Grotesk**, **Geist**, and **Material Symbols Outline
 1. Click **Connect with Spotify** on the landing page.
 2. Authorize the app.
 3. Click **Sync Spotify** in the sidebar — this fetches your 50 most recent tracks and starts background analysis.
-4. A banner shows how many tracks are being analysed. It disappears automatically when done (typically 2–10 minutes depending on how many tracks need lyrics).
+4. A banner shows how many tracks are being analysed. Lyrics are fetched server-side automatically — no browser action needed. It disappears when done (typically 1–3 minutes).
 5. The first sync loads HuggingFace models which takes ~15 seconds on first startup.
 
 ---

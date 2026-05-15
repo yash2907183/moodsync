@@ -7,7 +7,7 @@ Live at: **[moodsync-delta.vercel.app](https://moodsync-delta.vercel.app)**
 ## What it does
 
 - **Spotify OAuth** — sign in with Spotify; your 50 most recent tracks are fetched and analysed automatically after each sync
-- **Lyrics NLP** — lyrics are pulled from Genius (with lyrics.ovh + ChartLyrics as cloud fallbacks) and analysed with two models:
+- **Lyrics NLP** — lyrics are fetched server-side from lrclib.net (open API, no key required, covers English and romanised Indic scripts) and analysed with two models:
   - `j-hartmann/emotion-english-distilroberta-base` — 7-class emotion classifier (joy, sadness, anger, fear, disgust, surprise, optimism)
   - `cardiffnlp/twitter-roberta-base-sentiment` — RoBERTa polarity (positive / neutral / negative)
 - **Last.fm tag enrichment** — genre and mood tags fetched per track/artist; used to improve emotion regulation classification (e.g. distinguishes angry rap upregulation from genuine rumination)
@@ -20,7 +20,6 @@ Live at: **[moodsync-delta.vercel.app](https://moodsync-delta.vercel.app)**
 - **Genre mood breakdown** — per-genre emotion distribution and valence score using Last.fm genre tags
 - **Language-aware sentiment** — non-English tracks use XLM-RoBERTa (multilingual); comparison across languages
 - **Time-of-day / day-of-week patterns** — when do you listen to lyrically heavier vs lighter music?
-- **Artist mood map** — valence slider per artist, sortable, for artists with 3+ listens
 - **Analysis progress** — live banner after sync shows how many tracks are being processed, auto-refreshes when done
 - **Shareable cards** — html2canvas renders a styled PNG you can download or share
 
@@ -31,7 +30,7 @@ Live at: **[moodsync-delta.vercel.app](https://moodsync-delta.vercel.app)**
 | Backend | Python 3.11, FastAPI, SQLAlchemy 2, PostgreSQL (Neon) |
 | NLP | HuggingFace Transformers (j-hartmann, XLM-RoBERTa, cardiffnlp), VADER, statsmodels |
 | Music metadata | Last.fm API (genre/mood tags per track + artist) |
-| Lyrics | Genius API → lyrics.ovh → ChartLyrics (fallback chain) |
+| Lyrics | lrclib.net (server-side, no key required) |
 | Auth | Spotify OAuth 2.0 + JWT (python-jose) |
 | Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS v3 |
 | UI design system | Material Design 3 color tokens, Hanken Grotesk / Inter / Geist fonts, Material Symbols Outlined icons |
@@ -139,10 +138,11 @@ Non-English lyrics use XLM-RoBERTa multilingual model instead.
 
 ## Known limitations
 
-- **Genius blocked on cloud IPs** — Genius rate-limits requests from data centre IPs; lyrics.ovh and ChartLyrics are used as fallbacks but have narrower coverage
-- **Non-English tracks** — lyrics coverage varies; regional/non-English tracks that return no lyrics get a neutral placeholder score
+- **Genius blocked on cloud IPs** — Genius is 403'd on Railway; lrclib.net is used as the server-side fallback
+- **lrclib coverage** — very new releases and obscure tracks may not be in lrclib yet; those get valence=0.0
+- **Language detection** — romanised Punjabi/Hindi lyrics are misidentified by langdetect; affects only the language comparison chart, not scoring
 - **Lyrics ≠ musical feel** — sentiment is derived from lyrics only; Spotify's audio features API was deprecated for new apps in Nov 2024
-- **Spotify dev mode** — the app supports up to 25 users; add testers via the Spotify Developer Dashboard until extended quota is approved
+- **Spotify dev mode** — the app supports up to 5 users; add testers via Spotify Developer Dashboard → User Management
 
 ## License
 

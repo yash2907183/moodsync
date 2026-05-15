@@ -193,7 +193,7 @@ class SpotifyService:
             except (SpotifyException, Exception) as e:
                 # We catch generic Exception too, just in case spotipy raises a raw HTTPError
                 # We Log the error but DO NOT RAISE it. This allows the sync to continue.
-                logger.warning(f"Could not fetch audio features for batch (likely Spotify 403 restriction): {e}")
+                logger.debug(f"Could not fetch audio features for batch (likely Spotify 403 restriction): {e}")
                 continue
 
         logger.info(f"Fetched audio features for {len(features_map)}/{len(track_ids)} tracks")
