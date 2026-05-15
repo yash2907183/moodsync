@@ -4,7 +4,7 @@ Tracks API endpoints
 import logging
 from typing import List, Optional
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 import traceback
 
@@ -125,6 +125,7 @@ async def get_top_tracks(
 
 @router.post("/sync")
 async def sync_listening_history(
+    background_tasks: BackgroundTasks,
     spotify_access_token: str,
     limit: int = 50,
     current_user: User = Depends(get_current_user),
@@ -254,11 +255,15 @@ async def sync_listening_history(
 
         logger.info(f"Synced {synced_count} tracks for user {current_user.user_id} — {len(tracks_needing_lyrics)} need lyrics")
 
+        if tracks_needing_lyrics:
+            ids = [t["track_id"].replace("track_", "") for t in tracks_needing_lyrics]
+            background_tasks.add_task(fetch_lyrics_for_tracks, db, ids)
+
         return {
             "message": "Successfully synced listening history",
             "count": synced_count,
             "last_sync": current_user.last_sync,
-            "tracks_needing_lyrics": tracks_needing_lyrics,
+            "tracks_needing_lyrics": [],
         }
        
     except Exception as e:
@@ -286,25 +291,31 @@ def fetch_lyrics_for_tracks(db: Session, spotify_ids: List[str]):
 
             # --- Lyrics step ---
             existing_lyric = db.query(Lyric).filter(Lyric.track_id == track.track_id).first()
-            if not existing_lyric:
+            if not existing_lyric or (existing_lyric and not existing_lyric.text):
                 artist_name = track.artists[0] if track.artists else "Unknown"
                 lyrics_text, source, is_instrumental = lyrics_service.fetch_lyrics(
                     track.name, artist_name
                 )
                 if lyrics_text or is_instrumental:
                     language = lyrics_service.detect_language(lyrics_text) if lyrics_text else None
-                    existing_lyric = Lyric(
-                        track_id=track.track_id,
-                        source=source,
-                        language=language,
-                        text=lyrics_text or "",
-                        is_instrumental=is_instrumental,
-                    )
-                    db.add(existing_lyric)
+                    if existing_lyric:
+                        existing_lyric.text = lyrics_text or ""
+                        existing_lyric.source = source
+                        existing_lyric.language = language
+                        existing_lyric.is_instrumental = is_instrumental
+                    else:
+                        existing_lyric = Lyric(
+                            track_id=track.track_id,
+                            source=source,
+                            language=language,
+                            text=lyrics_text or "",
+                            is_instrumental=is_instrumental,
+                        )
+                        db.add(existing_lyric)
                     db.commit()
 
-            # --- Sentiment step (only for tracks still missing valence) ---
-            if track.valence is not None:
+            # --- Sentiment step (only for tracks still missing valence or stuck at 0.0) ---
+            if track.valence is not None and track.valence != 0.0:
                 continue
 
             if existing_lyric and existing_lyric.is_instrumental:
