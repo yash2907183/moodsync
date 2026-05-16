@@ -108,12 +108,46 @@ class LyricsService:
                     logger.info(f"lrclib succeeded for: {track_name}")
                     return cleaned, "lrclib", False
                 logger.warning(f"lrclib: no lyrics in response for '{track_name}'")
+            elif resp.status_code == 404:
+                # Exact match failed — try fuzzy search
+                result = self._lrclib_search_fallback(clean_track, clean_artist)
+                if result[0] is not None or result[2]:
+                    return result
+                logger.warning(f"lrclib: HTTP 404 for '{track_name}'")
             else:
                 logger.warning(f"lrclib: HTTP {resp.status_code} for '{track_name}'")
         except Exception as e:
             logger.warning(f"lrclib failed for '{track_name}': {e}")
         return None, "none", False
-    
+
+    def _lrclib_search_fallback(self, track_name: str, artist_name: str) -> Tuple[Optional[str], str, bool]:
+        """Fuzzy search fallback for when exact lrclib match fails (e.g. multi-artist tracks)."""
+        try:
+            query = f"{artist_name} {track_name}".strip()
+            resp = requests.get("https://lrclib.net/api/search", params={"q": query}, timeout=10)
+            if resp.status_code == 200:
+                results = resp.json()
+                if not results:
+                    return None, "none", False
+
+                # Find result whose trackName matches — avoids picking a same-album song
+                clean_search = track_name.lower().strip()
+                best = next(
+                    (r for r in results if (r.get("trackName") or "").lower().strip() == clean_search),
+                    results[0]  # fall back to first result if no title match
+                )
+
+                if best.get("instrumental"):
+                    return None, "lrclib", True
+                lyrics = best.get("plainLyrics") or ""
+                if lyrics and len(lyrics.strip()) >= 50:
+                    cleaned = self._clean_lyrics(lyrics)
+                    logger.info(f"lrclib search fallback succeeded for: {track_name}")
+                    return cleaned, "lrclib", False
+        except Exception as e:
+            logger.warning(f"lrclib search fallback failed for '{track_name}': {e}")
+        return None, "none", False
+
     def _normalize_title(self, title: str) -> str:
         """
         Normalize track title for better matching.
@@ -135,6 +169,19 @@ class LyricsService:
             r'\s*\[.*?\]',
             r'\s*-\s*Live.*',
             r'\s*\(Live.*?\)',
+            # Remix/edit styles common in streaming
+            r'\s*-\s*Hardstyle.*',
+            r'\s*-\s*Slowed.*',
+            r'\s*-\s*Sped\s*Up.*',
+            r'\s*-\s*Speed\s*Up.*',
+            r'\s*-\s*Techno.*',
+            r'\s*-\s*Hoodtrap.*',
+            r'\s*-\s*Nightcore.*',
+            r'\s*-\s*Lofi.*',
+            r'\s*-\s*Lo-fi.*',
+            r'\s*\(Hardstyle.*?\)',
+            r'\s*\(Slowed.*?\)',
+            r'\s*\(Sped.*?\)',
         ]
         
         normalized = title
