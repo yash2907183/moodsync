@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { getJwt, getSpotifyToken, isSpotifyTokenExpired, clearTokens } from "@/lib/auth"
-import { getMe, syncTracks, submitLyrics, getAnalysisStatus } from "@/lib/api"
+import { getMe, syncTracks, submitLyrics, getAnalysisStatus, getTodayCheckin } from "@/lib/api"
 import type { TrackNeedingLyrics } from "@/lib/api"
 import type { UserInfo } from "@/types"
 
@@ -91,6 +91,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [syncing, setSyncing] = useState(false)
   const [syncMsg, setSyncMsg] = useState<string | null>(null)
   const [pending, setPending] = useState(0)
+  const [reminder, setReminder] = useState<string | null>(null)
   const pollRef               = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -136,12 +137,37 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const { pending: p } = await getAnalysisStatus()
       setPending(p)
       if (p > 0) startPoll()
+
+      // Remind to check in if not done today
+      const checkin = await getTodayCheckin()
+      if (!checkin.count_today || checkin.count_today === 0) {
+        setReminder("You haven't logged your mood today — head to the Journal tab and tap how you're feeling. It takes 5 seconds!")
+      }
     } catch { setSyncMsg("Sync failed") }
     finally { setSyncing(false) }
   }
 
   return (
     <div className="flex min-h-screen bg-background text-on-background">
+
+      {/* ── Reminder Modal ── */}
+      {reminder && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-surface-container border border-outline-variant rounded-2xl p-6 max-w-sm mx-4 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary text-[28px]">notifications</span>
+              <h3 className="font-hanken text-[18px] font-semibold text-on-surface">Reminder</h3>
+            </div>
+            <p className="text-on-surface-variant text-sm leading-relaxed">{reminder}</p>
+            <button
+              onClick={() => setReminder(null)}
+              className="bg-primary text-on-primary rounded-xl py-2 px-4 font-geist text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Desktop Sidebar (hidden on mobile) ── */}
       <aside className="hidden md:flex w-[220px] shrink-0 flex-col bg-surface-container-lowest border-r border-outline-variant fixed h-full z-50 py-6 px-4 gap-6 overflow-y-auto">

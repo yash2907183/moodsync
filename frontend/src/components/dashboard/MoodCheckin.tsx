@@ -16,6 +16,7 @@ export default function MoodCheckinCard() {
   const [hovered, setHovered]       = useState<number | null>(null)
   const [saving, setSaving]         = useState(false)
   const [saved, setSaved]           = useState(false)
+  const [showSyncReminder, setShowSyncReminder] = useState(false)
 
   useEffect(() => {
     getTodayCheckin().then((r) => {
@@ -30,6 +31,7 @@ export default function MoodCheckinCard() {
       await submitCheckin(score)
       setSaved(true)
       setCountToday(c => c + 1)
+      setShowSyncReminder(true)
     } catch { /* non-critical */ } finally { setSaving(false) }
   }
 
@@ -87,6 +89,19 @@ export default function MoodCheckinCard() {
             </span>
           )}
         </div>
+
+        {showSyncReminder && (
+          <div className="mt-4 flex items-start gap-3 bg-primary/10 border border-primary/20 rounded-xl p-3">
+            <span className="material-symbols-outlined text-primary text-[20px] shrink-0">sync</span>
+            <div className="flex-1">
+              <p className="font-geist text-[12px] text-primary font-medium">Don't forget to sync!</p>
+              <p className="text-[12px] text-on-surface-variant mt-0.5">Head to the sidebar and hit Sync Spotify to capture today's listening.</p>
+            </div>
+            <button onClick={() => setShowSyncReminder(false)} className="text-on-surface-variant hover:text-on-surface">
+              <span className="material-symbols-outlined text-[16px]">close</span>
+            </button>
+          </div>
+        )}
 
         <div className="mt-6 pt-4 border-t border-outline-variant/30 flex items-center gap-3">
           <span className="material-symbols-outlined text-primary text-[20px]">lock_clock</span>
