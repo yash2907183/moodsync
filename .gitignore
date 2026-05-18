@@ -47,3 +47,8 @@ frontend/.env.*
 .idea/
 *.swp
 *.swo
+
+# ── Research / paper drafts ────────────────────────────────────────────────────
+paper_draft.md
+btp_research_design.md
+btp_dissertation.md
